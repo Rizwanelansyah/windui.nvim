@@ -12,11 +12,11 @@ local Window = {
   _window = {
     col = 0,
     row = 0,
-    width = 20,
     height = 8,
     relative = "editor",
     border = "single",
     style = "minimal",
+    width = 20,
     hide = false,
     focusable = true,
   },
@@ -183,6 +183,7 @@ function Window:animate(time, fps, end_, on_finish)
     if frame == end_frame then
       self.geometry = end_
       self:update()
+      self.geometry = Geometry:new(vim.api.nvim_win_get_config(self.win))
       if on_finish then
         on_finish()
       end
