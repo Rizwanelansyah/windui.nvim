@@ -1,11 +1,11 @@
-local Geometry = require("windui.geometry")
+local AnimationFrame = require("windui.animation_frame")
 -- local util = require("windui.util")
 ---@class windui.Window.OpenOpts
 
 ---@class windui.Window
 ---@field private _window vim.api.keyset.win_config
 ---@field private _mappings table<string, table<string, string|function>>
----@field geometry windui.Geometry
+---@field anim_frame windui.AnimationFrame
 ---@field win integer?
 ---@field buf integer?
 local Window = {
@@ -21,7 +21,7 @@ local Window = {
     focusable = true,
   },
   _mappings = {},
-  geometry = Geometry:new(),
+  anim_frame = AnimationFrame.new(),
 }
 
 ---create a new Window
@@ -35,7 +35,7 @@ function Window.new(config)
   if config then
     t._window = vim.tbl_extend('force', t._window, config)
   end
-  t.geometry = Geometry:new(t._window)
+  t.anim_frame = AnimationFrame.new(t._window)
   return t
 end
 
@@ -135,22 +135,30 @@ function Window:unmap(mode, lhs)
   return self
 end
 
----update the geometry and config
+---update the animation frame and config
+---@param anim_frame? windui.AnimationFrame
 ---@return windui.Window
-function Window:update()
+function Window:update(anim_frame)
   if not self.win then return self end
-  self._window = vim.tbl_extend('force', self._window, self.geometry)
-  vim.api.nvim_win_set_config(self.win, vim.tbl_extend('force', self._window, self.geometry:each(math.floor)))
+  if anim_frame then
+    self.anim_frame = anim_frame
+  end
+  self._window = vim.tbl_extend('force', self._window, self.anim_frame)
+  local config = vim.tbl_extend('force', self._window, self.anim_frame:map {
+    width = math.floor,
+    height = math.floor,
+  })
+  vim.api.nvim_win_set_config(self.win, config)
   return self
 end
 
 ---animate window
 ---@param time integer
 ---@param fps integer
----@param end_ windui.Geometry
+---@param end_ windui.AnimationFrame
 ---@param on_finish? function
 function Window:animate(time, fps, end_, on_finish)
-  local begin = self.geometry
+  local begin = self.anim_frame
 
   local row_range = begin.row > end_.row and begin.row - end_.row or end_.row - begin.row
   local col_range = begin.col > end_.col and begin.col - end_.col or end_.col - begin.col
@@ -172,7 +180,7 @@ function Window:animate(time, fps, end_, on_finish)
   local timer = vim.uv.new_timer()
   local delay = (time / (time * fps)) * 1000
   local function animate()
-    self.geometry = self.geometry:mod {
+    self.anim_frame = self.anim_frame:add {
       row = row_speed,
       col = col_speed,
       width = width_speed,
@@ -181,9 +189,8 @@ function Window:animate(time, fps, end_, on_finish)
     self:update()
     frame = frame + 1
     if frame == end_frame then
-      self.geometry = end_
+      self.anim_frame = end_
       self:update()
-      self.geometry = Geometry:new(vim.api.nvim_win_get_config(self.win))
       if on_finish then
         on_finish()
       end
