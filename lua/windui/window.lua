@@ -5,6 +5,7 @@ local AnimationFrame = require("windui.animation_frame")
 ---@class windui.Window
 ---@field private _window vim.api.keyset.win_config
 ---@field private _mappings table<string, table<string, string|function>>
+---@field private _events table<string, vim.api.keyset.create_autocmd[]>
 ---@field anim_frame windui.AnimationFrame
 ---@field win integer?
 ---@field buf integer?
@@ -21,6 +22,7 @@ local Window = {
     focusable = true,
   },
   _mappings = {},
+  _events = {},
   anim_frame = AnimationFrame.new(),
 }
 
@@ -63,8 +65,22 @@ function Window:open(enter, opts)
     end
   end
 
+  vim.api.nvim_create_augroup("WindUI", {})
+  for event, events in pairs(self._events) do
+    for _, opt in ipairs(events) do
+      vim.api.nvim_create_autocmd(event, {
+        group = "WindUI",
+        buffer = self.buf,
+        pattern = opt.pattern,
+        callback = opt.callback,
+        command = opt.command,
+      })
+    end
+  end
+
   vim.api.nvim_create_autocmd("WinClosed", {
     buffer = self.buf,
+    group = "WindUI",
     callback = function()
       self.win = nil
       self.buf = nil
@@ -92,6 +108,7 @@ function Window:close(force)
         vim.api.nvim_buf_del_keymap(self.buf, mode, lhs)
       end
     end
+    vim.api.nvim_clear_autocmds { group = "WindUI", buffer = self.buf }
     vim.api.nvim_buf_delete(self.buf --[[@as integer]], { force = force })
     self.buf = nil
   end
@@ -199,6 +216,55 @@ function Window:animate(time, fps, end_, on_finish)
     end
   end
   animate()
+end
+
+---add {handler} to {event} with {pattern}
+---@param event string
+---@param pattern? string|string[]
+---@param handler function|string
+function Window:on(event, pattern, handler)
+  local event_opts = {
+    pattern = pattern,
+    group = "WindUI",
+    buffer = self.buf,
+    callback = type(handler) == "function" and handler or nil,
+    command = type(handler) == "string" and handler or nil,
+  }
+  if not self._events[event] then
+    self._events[event] = {}
+  end
+  table.insert(self._events[event], {
+    pattern = pattern,
+    callback = event_opts.callback,
+    command = event_opts.command,
+  })
+
+  if not self.win then return end
+  vim.api.nvim_create_augroup("WindUI", {})
+  vim.api.nvim_create_autocmd(event, event_opts)
+end
+
+---remove {event} handler with {pattern}
+---@param event string
+---@param pattern? string|string[]
+function Window:off(event, pattern)
+  if self._events[event] then
+    self._events[event] = vim.tbl_filter(function(val)
+      if val.pattern then
+        return not (pattern and val.pattern == pattern)
+      else
+        return false
+      end
+    end, self._events[event])
+  end
+
+  if not self.win then return end
+  vim.api.nvim_clear_autocmds({
+    event = event,
+    pattern = pattern,
+    buffer = self.buf,
+    group = "WindUI",
+  })
 end
 
 return Window
