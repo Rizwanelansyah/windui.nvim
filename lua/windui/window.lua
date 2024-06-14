@@ -1,13 +1,15 @@
 local AnimationFrame = require("windui.animation_frame")
----@class windui.Window.OpenOpts
 
 ---@class windui.Window
 ---@field private _window vim.api.keyset.win_config
 ---@field private _mappings table<string, table<string, string|function>>
 ---@field private _events table<string, vim.api.keyset.create_autocmd[]>
+---@field animating boolean
 ---@field anim_frame windui.AnimationFrame
 ---@field win integer?
 ---@field buf integer?
+---@field after_open function
+---@field before_close fun(close: function)
 local Window = {
   _window = {
     col = 0,
@@ -23,13 +25,14 @@ local Window = {
   _mappings = {},
   _events = {},
   anim_frame = AnimationFrame.new(),
+  animating = false,
 }
 
 ---create a new Window
 ---@param config? vim.api.keyset.win_config
 ---@return windui.Window
 function Window.new(config)
-  local t = {}
+  local t = { _mappings = {}, _events = {} }
   setmetatable(t, {
     __index = Window,
   })
@@ -42,11 +45,9 @@ end
 
 ---open the Window
 ---@param enter? boolean
----@param opts? windui.Window.OpenOpts
 ---@return windui.Window
-function Window:open(enter, opts)
+function Window:open(enter)
   if enter == nil then enter = false end
-  opts = vim.tbl_extend("force", {}, opts or {})
   if self.win or self.buf then return self end
   self.buf = vim.api.nvim_create_buf(false, true)
 
@@ -87,6 +88,9 @@ function Window:open(enter, opts)
   })
 
   self.win = vim.api.nvim_open_win(self.buf, enter, vim.tbl_extend('force', self._window, self.anim_frame))
+  if self.after_open then
+    self.after_open()
+  end
   return self
 end
 
@@ -97,19 +101,26 @@ function Window:close(force)
   if force == nil then
     force = true
   end
-  if self.win then
-    vim.api.nvim_win_close(self.win --[[@as integer]], force)
-    self.win = nil
-  end
-  if self.buf then
-    for mode, mapping in pairs(self._mappings) do
-      for lhs, _ in pairs(mapping) do
-        vim.api.nvim_buf_del_keymap(self.buf, mode, lhs)
-      end
+  local function close_win()
+    if self.win then
+      vim.api.nvim_win_close(self.win --[[@as integer]], force)
+      self.win = nil
     end
-    vim.api.nvim_clear_autocmds { group = "WindUI", buffer = self.buf }
-    vim.api.nvim_buf_delete(self.buf --[[@as integer]], { force = force })
-    self.buf = nil
+    if self.buf then
+      for mode, mapping in pairs(self._mappings) do
+        for lhs, _ in pairs(mapping) do
+          vim.api.nvim_buf_del_keymap(self.buf, mode, lhs)
+        end
+      end
+      vim.api.nvim_clear_autocmds { group = "WindUI", buffer = self.buf }
+      vim.api.nvim_buf_delete(self.buf --[[@as integer]], { force = force })
+      self.buf = nil
+    end
+  end
+  if self.before_close then
+    self.before_close(close_win)
+  else
+    close_win()
   end
   return self
 end
@@ -160,11 +171,17 @@ function Window:update(anim_frame)
   end
   self._window = vim.tbl_extend('force', self._window, self.anim_frame)
   if not self.win then return self end
+  local function floor_or(alt)
+    return function(num)
+      local result = math.floor(num)
+      return result <= 0 and alt or result
+    end
+  end
   local config = vim.tbl_extend('force', self._window, self.anim_frame:map {
-    width = math.floor,
-    height = math.floor,
-    row = math.floor,
-    col = math.floor,
+    width = floor_or(1),
+    height = floor_or(1),
+    row = floor_or(0),
+    col = floor_or(0),
   })
   vim.api.nvim_win_set_config(self.win, config)
   return self
@@ -176,6 +193,7 @@ end
 ---@param end_ windui.AnimationFrame
 ---@param on_finish? function
 function Window:animate(time, fps, end_, on_finish)
+  self.anim_frame = AnimationFrame.new(self._window)
   local begin = self.anim_frame
 
   local row_range = begin.row > end_.row and begin.row - end_.row or end_.row - begin.row
@@ -209,6 +227,9 @@ function Window:animate(time, fps, end_, on_finish)
     if frame == end_frame then
       self.anim_frame = end_
       self:update()
+      if self.win then
+        self.anim_frame = AnimationFrame.new(vim.api.nvim_win_get_config(self.win))
+      end
       if on_finish then
         on_finish()
       end
