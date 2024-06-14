@@ -1,4 +1,5 @@
 local AnimationFrame = require("windui.animation_frame")
+local Animation      = require("windui.animation")
 
 ---@class windui.Window
 ---@field private _window vim.api.keyset.win_config
@@ -10,7 +11,7 @@ local AnimationFrame = require("windui.animation_frame")
 ---@field buf integer?
 ---@field after_open function
 ---@field before_close fun(close: function)
-local Window = {
+local Window         = {
   _window = {
     col = 0,
     row = 0,

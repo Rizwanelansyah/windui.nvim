@@ -16,10 +16,9 @@ local AnimationFrame = {
 }
 
 ---@generic T
----@alias wrap fun(value: T): T
-
+---@alias windui.wrap fun(value: T): T
 ---@alias windui.anim_frame.opts { col?: number, row?: number, width?: number, height?: number, border?: border }
----@alias windui.anim_frame.map_opts { col?: wrap<number>, row?: wrap<number>, width?: wrap<number>, height?: wrap<number>, border?: wrap<border> }
+---@alias windui.anim_frame.map_opts { col?: windui.wrap<number>, row?: windui.wrap<number>, width?: windui.wrap<number>, height?: windui.wrap<number>, border?: windui.wrap<border> }
 
 ---create new animation frame
 ---@param opts? windui.anim_frame.opts
