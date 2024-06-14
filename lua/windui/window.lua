@@ -1,4 +1,5 @@
 local AnimationFrame = require("windui.animation_frame")
+local Animation = require("windui.animation")
 -- local util = require("windui.util")
 ---@class windui.Window.OpenOpts
 
@@ -87,7 +88,7 @@ function Window:open(enter, opts)
     end
   })
 
-  self.win = vim.api.nvim_open_win(self.buf, enter, self._window)
+  self.win = vim.api.nvim_open_win(self.buf, enter, vim.tbl_extend('force', self._window, self.anim_frame))
   return self
 end
 
@@ -156,11 +157,11 @@ end
 ---@param anim_frame? windui.AnimationFrame
 ---@return windui.Window
 function Window:update(anim_frame)
-  if not self.win then return self end
   if anim_frame then
     self.anim_frame = anim_frame
   end
   self._window = vim.tbl_extend('force', self._window, self.anim_frame)
+  if not self.win then return self end
   local config = vim.tbl_extend('force', self._window, self.anim_frame:map {
     width = math.floor,
     height = math.floor,
@@ -265,6 +266,14 @@ function Window:off(event, pattern)
     buffer = self.buf,
     group = "WindUI",
   })
+end
+
+---play {anim} on window
+---@param anim windui.Animation
+function Window:play(anim, on_finish)
+  if not self.win then return self end
+  anim:play(self, on_finish)
+  return self
 end
 
 return Window

@@ -1,23 +1,26 @@
 local flr = math.floor
+---@alias border "none"|"single"|"rounded"|"double"|"solid"|string[]|string[][]
+---@alias windui.anim_frame.position "left" | "top_left" | "top" | "top_right" | "right" | "bottom_right" | "bottom" | "bottom_left" | "center"
+
 ---@class windui.AnimationFrame
 ---@field col number
 ---@field row number
 ---@field width number
 ---@field height number
----@field border boolean
+---@field border border
 local AnimationFrame = {
   col = 0,
   row = 0,
   width = 0,
   height = 0,
-  border = true,
+  border = "none",
 }
 
 ---@generic T
 ---@alias wrap fun(value: T): T
 
----@alias windui.anim_frame.opts { col?: number, row?: number, width?: number, height?: number, border?: boolean }
----@alias windui.anim_frame.map_opts { col?: wrap<number>, row?: wrap<number>, width?: wrap<number>, height?: wrap<number>, border?: wrap<boolean> }
+---@alias windui.anim_frame.opts { col?: number, row?: number, width?: number, height?: number, border?: border }
+---@alias windui.anim_frame.map_opts { col?: wrap<number>, row?: wrap<number>, width?: wrap<number>, height?: wrap<number>, border?: wrap<border> }
 
 ---create new animation frame
 ---@param opts? windui.anim_frame.opts
@@ -76,13 +79,14 @@ function AnimationFrame:map(opts)
 end
 
 ---move animation frame to {direction}
----@param direction "left" | "top_left" | "top" | "top_right" | "right" | "bottom_right" | "bottom" | "bottom_left" | "center"
+---@param direction windui.anim_frame.position
 ---@return windui.AnimationFrame
 function AnimationFrame:move_to(direction)
+  local bordered = not (self.border == "none")
   return ({
     left = function()
       return self:clone {
-        row = flr(vim.o.lines / 2) - flr(self.height / 2) - (self.border and 1 or 0),
+        row = flr(vim.o.lines / 2) - flr(self.height / 2) - (bordered and 1 or 0),
         col = 0,
       }
     end,
@@ -90,43 +94,43 @@ function AnimationFrame:move_to(direction)
     top = function()
       return self:clone {
         row = 0,
-        col = flr(vim.o.columns / 2) - flr(self.width / 2) - (self.border and 1 or 0),
+        col = flr(vim.o.columns / 2) - flr(self.width / 2) - (bordered and 1 or 0),
       }
     end,
     top_right = function()
       return self:clone {
         row = 0,
-        col = vim.o.columns - self.width - (self.border and 1 or 0),
+        col = vim.o.columns - self.width - (bordered and 1 or 0),
       }
     end,
     right = function()
       return self:clone {
-        row = flr(vim.o.lines / 2) - (self.height / 2) - (self.border and 1 or 0),
-        col = vim.o.columns - self.width - (self.border and 1 or 0),
+        row = flr(vim.o.lines / 2) - (self.height / 2) - (bordered and 1 or 0),
+        col = vim.o.columns - self.width - (bordered and 1 or 0),
       }
     end,
     bottom_right = function()
       return self:clone {
-        row = vim.o.lines - self.height - (self.border and 1 or 0),
-        col = vim.o.columns - self.width - (self.border and 1 or 0),
+        row = vim.o.lines - self.height - (bordered and 1 or 0),
+        col = vim.o.columns - self.width - (bordered and 1 or 0),
       }
     end,
     bottom = function()
       return self:clone {
-        row = vim.o.lines - self.height - (self.border and 1 or 0),
-        col = flr(vim.o.columns / 2) - flr(self.width / 2) - (self.border and 1 or 0),
+        row = vim.o.lines - self.height - (bordered and 1 or 0),
+        col = flr(vim.o.columns / 2) - flr(self.width / 2) - (bordered and 1 or 0),
       }
     end,
     bottom_left = function()
       return self:clone {
-        row = vim.o.lines - self.height - (self.border and 1 or 0),
+        row = vim.o.lines - self.height - (bordered and 1 or 0),
         col = 0,
       }
     end,
     center = function()
       return self:clone {
-        row = flr(vim.o.lines / 2) - (self.height / 2) - (self.border and 1 or 0),
-        col = flr(vim.o.columns / 2) - flr(self.width / 2) - (self.border and 1 or 0),
+        row = flr(vim.o.lines / 2) - (self.height / 2) - (bordered and 1 or 0),
+        col = flr(vim.o.columns / 2) - flr(self.width / 2) - (bordered and 1 or 0),
       }
     end
   })[direction]()
