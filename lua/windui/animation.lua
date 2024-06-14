@@ -1,18 +1,12 @@
 ---@class windui.Animation
 ---@field frames fun(self: windui.Window, next: function)[]
----@field current_frame integer
----@field len integer
-local Animation = {
-  frames = {},
-  current_frame = 1,
-  len = 1,
-}
+local Animation = {}
 
 ---create new animation
 ---@param frames ({ time?: integer, fps?: integer, anim_frame?: windui.AnimationFrame|windui.anim_frame.position }|fun(self: windui.Window))[]
 ---@return windui.Animation
 function Animation.new(frames)
-  local o = {}
+  local o = { frames = {} }
   setmetatable(o, {
     __index = Animation,
   })
@@ -39,13 +33,13 @@ end
 ---@param win windui.Window
 ---@param on_finish function
 function Animation:play(win, on_finish)
+  local i = 1
   local function next()
-    local frame = self.frames[self.current_frame]
-    if self.current_frame <= self.len then
-      self.current_frame = self.current_frame + 1
+    local frame = self.frames[i]
+    if frame then
+      i = i + 1
       frame(win, next)
     else
-      self.current_frame = 1
       if on_finish then
         on_finish()
       end

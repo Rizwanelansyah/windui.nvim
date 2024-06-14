@@ -13,7 +13,6 @@ local AnimationFrame = {
   row = 0,
   width = 0,
   height = 0,
-  border = "none",
 }
 
 ---@generic T

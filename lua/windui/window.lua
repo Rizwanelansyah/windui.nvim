@@ -1,6 +1,4 @@
 local AnimationFrame = require("windui.animation_frame")
-local Animation = require("windui.animation")
--- local util = require("windui.util")
 ---@class windui.Window.OpenOpts
 
 ---@class windui.Window
@@ -165,6 +163,8 @@ function Window:update(anim_frame)
   local config = vim.tbl_extend('force', self._window, self.anim_frame:map {
     width = math.floor,
     height = math.floor,
+    row = math.floor,
+    col = math.floor,
   })
   vim.api.nvim_win_set_config(self.win, config)
   return self
