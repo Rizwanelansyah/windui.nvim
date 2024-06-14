@@ -1,17 +1,15 @@
-local AnimationFrame = require("windui.animation_frame")
-local Animation      = require("windui.animation")
+local WindowState = require("windui.window_state")
 
 ---@class windui.Window
 ---@field private _window vim.api.keyset.win_config
 ---@field private _mappings table<string, table<string, string|function>>
 ---@field private _events table<string, vim.api.keyset.create_autocmd[]>
----@field animating boolean
----@field anim_frame windui.AnimationFrame
+---@field state windui.WindowState
 ---@field win integer?
 ---@field buf integer?
 ---@field after_open function
 ---@field before_close fun(close: function)
-local Window         = {
+local Window = {
   _window = {
     col = 0,
     row = 0,
@@ -25,8 +23,7 @@ local Window         = {
   },
   _mappings = {},
   _events = {},
-  anim_frame = AnimationFrame.new(),
-  animating = false,
+  state = WindowState.new(),
 }
 
 ---create a new Window
@@ -40,7 +37,7 @@ function Window.new(config)
   if config then
     t._window = vim.tbl_extend('force', t._window, config)
   end
-  t.anim_frame = AnimationFrame.new(t._window)
+  t.state = WindowState.new(t._window)
   return t
 end
 
@@ -88,7 +85,7 @@ function Window:open(enter)
     end
   })
 
-  self.win = vim.api.nvim_open_win(self.buf, enter, vim.tbl_extend('force', self._window, self.anim_frame))
+  self.win = vim.api.nvim_open_win(self.buf, enter, vim.tbl_extend('force', self._window, self.state))
   if self.after_open then
     self.after_open()
   end
@@ -163,14 +160,14 @@ function Window:unmap(mode, lhs)
   return self
 end
 
----update the animation frame and config
----@param anim_frame? windui.AnimationFrame
+---update the state and config
+---@param state? windui.WindowState
 ---@return windui.Window
-function Window:update(anim_frame)
-  if anim_frame then
-    self.anim_frame = anim_frame
+function Window:update(state)
+  if state then
+    self.state = state
   end
-  self._window = vim.tbl_extend('force', self._window, self.anim_frame)
+  self._window = vim.tbl_extend('force', self._window, self.state)
   if not self.win then return self end
   local function floor_or(alt)
     return function(num)
@@ -178,7 +175,7 @@ function Window:update(anim_frame)
       return result <= 0 and alt or result
     end
   end
-  local config = vim.tbl_extend('force', self._window, self.anim_frame:map {
+  local config = vim.tbl_extend('force', self._window, self.state:map {
     width = floor_or(1),
     height = floor_or(1),
     row = floor_or(0),
@@ -191,11 +188,11 @@ end
 ---animate window
 ---@param time integer
 ---@param fps integer
----@param end_ windui.AnimationFrame
+---@param end_ windui.WindowState
 ---@param on_finish? function
 function Window:animate(time, fps, end_, on_finish)
-  self.anim_frame = AnimationFrame.new(self._window)
-  local begin = self.anim_frame
+  self.state = WindowState.new(self._window)
+  local begin = self.state
 
   local row_range = begin.row > end_.row and begin.row - end_.row or end_.row - begin.row
   local col_range = begin.col > end_.col and begin.col - end_.col or end_.col - begin.col
@@ -217,7 +214,7 @@ function Window:animate(time, fps, end_, on_finish)
   local timer = vim.uv.new_timer()
   local delay = (time / (time * fps)) * 1000
   local function animate()
-    self.anim_frame = self.anim_frame:add {
+    self.state = self.state:add {
       row = row_speed,
       col = col_speed,
       width = width_speed,
@@ -226,10 +223,10 @@ function Window:animate(time, fps, end_, on_finish)
     self:update()
     frame = frame + 1
     if frame == end_frame then
-      self.anim_frame = end_
+      self.state = end_
       self:update()
       if self.win then
-        self.anim_frame = AnimationFrame.new(vim.api.nvim_win_get_config(self.win))
+        self.state = WindowState.new(vim.api.nvim_win_get_config(self.win))
       end
       if on_finish then
         on_finish()

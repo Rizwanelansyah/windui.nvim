@@ -1,14 +1,14 @@
----@class windui.Animation.FrameConfig
+---@class windui.Animation.Frame
 ---@field time integer
 ---@field fps integer
----@field frame windui.AnimationFrame
+---@field frame windui.WindowState
 
 ---@class windui.Animation
----@field frames windui.Animation.FrameConfig[]
+---@field frames windui.Animation.Frame[]
 local Animation = {}
 
----create new animation
----@param frames windui.Animation.FrameConfig[]
+---create new animatio
+---@param frames windui.Animation.Frame[]
 ---@return windui.Animation
 function Animation.new(frames)
   local o = { frames = frames }

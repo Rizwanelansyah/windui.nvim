@@ -1,14 +1,14 @@
 local flr = math.floor
----@alias border "none"|"single"|"rounded"|"double"|"solid"|string[]|string[][]
+---@alias windui.border "none"|"single"|"rounded"|"double"|"solid"|string[]|string[][]
 ---@alias windui.anim_frame.position "left" | "top_left" | "top" | "top_right" | "right" | "bottom_right" | "bottom" | "bottom_left" | "center"
 
----@class windui.AnimationFrame
+---@class windui.WindowState
 ---@field col number
 ---@field row number
 ---@field width number
 ---@field height number
----@field border border
-local AnimationFrame = {
+---@field border windui.border
+local WindowState = {
   col = 0,
   row = 0,
   width = 0,
@@ -17,34 +17,34 @@ local AnimationFrame = {
 
 ---@generic T
 ---@alias windui.wrap fun(value: T): T
----@alias windui.anim_frame.opts { col?: number, row?: number, width?: number, height?: number, border?: border }
----@alias windui.anim_frame.map_opts { col?: windui.wrap<number>, row?: windui.wrap<number>, width?: windui.wrap<number>, height?: windui.wrap<number>, border?: windui.wrap<border> }
+---@alias windui.anim_frame.opts { col?: number, row?: number, width?: number, height?: number, border?: windui.border }
+---@alias windui.anim_frame.map_opts { col?: windui.wrap<number>, row?: windui.wrap<number>, width?: windui.wrap<number>, height?: windui.wrap<number>, border?: windui.wrap<windui.border> }
 
----create new animation frame
+---create new window state
 ---@param opts? windui.anim_frame.opts
----@return windui.AnimationFrame
-function AnimationFrame.new(opts)
+---@return windui.WindowState
+function WindowState.new(opts)
   local o = {}
   setmetatable(o, {
-    __index = AnimationFrame,
+    __index = WindowState,
   })
   if opts then
-    o.col = opts.col or AnimationFrame.col
-    o.row = opts.row or AnimationFrame.row
-    o.width = opts.width or AnimationFrame.width
-    o.height = opts.height or AnimationFrame.height
-    o.border = opts.border or AnimationFrame.border
+    o.col = opts.col or WindowState.col
+    o.row = opts.row or WindowState.row
+    o.width = opts.width or WindowState.width
+    o.height = opts.height or WindowState.height
+    o.border = opts.border or WindowState.border
   end
   return o
 end
 
----clone animation frame
+---clone window state
 ---@param opts? windui.anim_frame.opts
----@return windui.AnimationFrame
-function AnimationFrame:clone(opts)
+---@return windui.WindowState
+function WindowState:clone(opts)
   local o = {}
   setmetatable(o, {
-    __index = AnimationFrame,
+    __index = WindowState,
   })
   opts = opts or {}
   o.col = opts.col or self.col
@@ -54,21 +54,21 @@ function AnimationFrame:clone(opts)
   return o
 end
 
----modify animation frame
+---modify window state
 ---@param opts windui.anim_frame.opts
----@return windui.AnimationFrame
-function AnimationFrame:add(opts)
-  local animf = self:clone()
+---@return windui.WindowState
+function WindowState:add(opts)
+  local state = self:clone()
   for opt, value in pairs(opts) do
-    animf[opt] = animf[opt] + value
+    state[opt] = state[opt] + value
   end
-  return animf
+  return state
 end
 
 ---map fields on {self} with field on {opts}
 ---@param opts windui.anim_frame.map_opts
----@return windui.AnimationFrame
-function AnimationFrame:map(opts)
+---@return windui.WindowState
+function WindowState:map(opts)
   local animf = self:clone()
   for key, map in pairs(opts) do
     animf[key] = map(animf[key])
@@ -76,10 +76,10 @@ function AnimationFrame:map(opts)
   return animf
 end
 
----move animation frame to {direction}
+---move window state to {direction}
 ---@param direction windui.anim_frame.position
----@return windui.AnimationFrame
-function AnimationFrame:move_to(direction)
+---@return windui.WindowState
+function WindowState:move_to(direction)
   local bordered = not (self.border == "none")
   return ({
     left = function()
@@ -134,4 +134,4 @@ function AnimationFrame:move_to(direction)
   })[direction]()
 end
 
-return AnimationFrame
+return WindowState
