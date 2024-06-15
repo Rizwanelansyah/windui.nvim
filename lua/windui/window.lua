@@ -23,7 +23,18 @@ local WindowState = require("windui.window_state")
 ---@field before_close fun(close: function)
 local Window = {
   class_name = "Window",
-  _window = {
+}
+
+---create a new Window
+---@param config? vim.api.keyset.win_config
+---@return windui.Window
+function Window.new(config)
+  ---@type windui.Window
+  local t = { _mappings = {}, _events = {}, opt = {} }
+  setmetatable(t, {
+    __index = Window,
+  })
+  t._window = vim.tbl_extend('force', {
     col = 0,
     row = 0,
     height = 1,
@@ -33,23 +44,7 @@ local Window = {
     width = 1,
     hide = false,
     focusable = true,
-  },
-  _mappings = {},
-  _events = {},
-  state = WindowState.new(),
-}
-
----create a new Window
----@param config? vim.api.keyset.win_config
----@return windui.Window
-function Window.new(config)
-  local t = { _mappings = {}, _events = {} }
-  setmetatable(t, {
-    __index = Window,
-  })
-  if config then
-    t._window = vim.tbl_extend('force', t._window, config)
-  end
+  }, config or {})
   t.state = WindowState.new(t._window)
   return t
 end

@@ -1,7 +1,5 @@
 local WindowState = require("windui.window_state")
 local util        = require("windui.util")
-local Animation   = require("windui.animation")
-local Window      = require("windui.window")
 
 ---@class windui.Stack: windui.UIComponent
 ---@field class_name string

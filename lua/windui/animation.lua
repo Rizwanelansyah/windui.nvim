@@ -21,7 +21,27 @@ function Animation.new(frames)
   return o
 end
 
----paly animation on {win}
+---create animation with same {time} and {fps} every frame in {frames}
+---@param time? integer
+---@param fps? integer
+---@param frames ({ time?: integer, fps?: integer, frame: windui.WindowState }|windui.WindowState)[]
+---@return windui.Animation
+function Animation.with(time, fps, frames)
+  local o = { frames = {} }
+  setmetatable(o, {
+    __index = Animation,
+  })
+  o.frames = vim.tbl_map(function(value)
+    return {
+      time = time or value.time or 0,
+      fps = fps or value.fps or 0,
+      frame = value.frame or value
+    }
+  end, frames)
+  return o
+end
+
+---play animation on {win}
 ---@param comp windui.UIComponent
 ---@param on_finish? function
 function Animation:play(comp, on_finish)
@@ -42,6 +62,22 @@ function Animation:play(comp, on_finish)
 
   local timer = vim.uv.new_timer()
   timer:start(0, 0, vim.schedule_wrap(anim))
+end
+
+function Animation:reverse()
+  local frames = {}
+  for i = #self.frames, 1, -1 do
+    table.insert(frames, self.frames[i])
+  end
+  local anim = Animation.new(frames)
+  return anim
+end
+
+---set all frame time to equal {time} if summed
+---@param time any
+function Animation:set_duration(time)
+  local duration = time / #self.frames
+  return Animation.with(duration, nil, self.frames)
 end
 
 return Animation

@@ -24,6 +24,4 @@ function M.div_list_int(a, b)
   return result
 end
 
-vim.print(M.div_list_int(50, 1))
-
 return M
