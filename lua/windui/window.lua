@@ -1,23 +1,36 @@
 local WindowState = require("windui.window_state")
+---@class windui.UIComponent
+---@field state windui.WindowState
+---@field open fun(self: windui.UIComponent, enter?: boolean): windui.UIComponent
+---@field close fun(self: windui.UIComponent, force?: boolean): windui.UIComponent
+---@field update fun(self: windui.UIComponent, state?: windui.WindowState): windui.UIComponent
+---@field focus fun(self: windui.UIComponent): windui.UIComponent
+---@field map fun(self: windui.UIComponent, mode: string|string[], lhs: string, rhs: function|string): windui.UIComponent
+---@field unmap fun(self: windui.UIComponent, mode: string|string[], lhs: string): windui.UIComponent
+---@field on fun(self: windui.UIComponent, event: string|string[], pattern?: string|string[], handler: string|function): windui.UIComponent
+---@field off fun(self: windui.UIComponent, event: string|string[], pattern?: string|string[]): windui.UIComponent
+---@field animate fun(self: windui.UIComponent, time: number, fps: integer, state: windui.WindowState, on_finish?: function): windui.UIComponent
 
----@class windui.Window
----@field private _window vim.api.keyset.win_config
----@field private _mappings table<string, table<string, string|function>>
----@field private _events table<string, vim.api.keyset.create_autocmd[]>
+---@class windui.Window: windui.UIComponent
+---@field class_name string
+---@field protected _window vim.api.keyset.win_config
+---@field protected _mappings table<string, table<string, string|function>>
+---@field protected _events table<string, vim.api.keyset.create_autocmd[]>
 ---@field state windui.WindowState
 ---@field win integer?
 ---@field buf integer?
 ---@field after_open function
 ---@field before_close fun(close: function)
 local Window = {
+  class_name = "Window",
   _window = {
     col = 0,
     row = 0,
-    height = 8,
+    height = 1,
     relative = "editor",
     border = "single",
     style = "minimal",
-    width = 20,
+    width = 1,
     hide = false,
     focusable = true,
   },
@@ -63,7 +76,7 @@ function Window:open(enter)
     end
   end
 
-  vim.api.nvim_create_augroup("WindUI", {})
+  vim.api.nvim_create_augroup("WindUI", { clear = false })
   for event, events in pairs(self._events) do
     for _, opt in ipairs(events) do
       vim.api.nvim_create_autocmd(event, {
@@ -85,7 +98,10 @@ function Window:open(enter)
     end
   })
 
-  self.win = vim.api.nvim_open_win(self.buf, enter, vim.tbl_extend('force', self._window, self.state))
+  local config = vim.tbl_extend('force', self._window, self.state)
+  config.blend = nil
+  self.win = vim.api.nvim_open_win(self.buf, enter, config)
+  vim.wo[self.win].winblend = self.state.blend
   if self.after_open then
     self.after_open()
   end
@@ -168,6 +184,8 @@ function Window:update(state)
     self.state = state
   end
   self._window = vim.tbl_extend('force', self._window, self.state)
+  ---@diagnostic disable-next-line: inject-field
+  self._window.blend = nil
   if not self.win then return self end
   local function floor_or(alt)
     return function(num)
@@ -181,7 +199,9 @@ function Window:update(state)
     row = floor_or(0),
     col = floor_or(0),
   })
+  config.blend = nil
   vim.api.nvim_win_set_config(self.win, config)
+  vim.wo[self.win].winblend = math.floor(self.state.blend or 0)
   return self
 end
 
@@ -190,24 +210,33 @@ end
 ---@param fps integer
 ---@param end_ windui.WindowState
 ---@param on_finish? function
+---@return windui.Window
 function Window:animate(time, fps, end_, on_finish)
-  self.state = WindowState.new(self._window)
   local begin = self.state
 
   local row_range = begin.row > end_.row and begin.row - end_.row or end_.row - begin.row
   local col_range = begin.col > end_.col and begin.col - end_.col or end_.col - begin.col
   local width_range = begin.width > end_.width and begin.width - end_.width or end_.width - begin.width
   local height_range = begin.height > end_.height and begin.height - end_.height or end_.height - begin.height
+  local blend_range
+  if begin.blend then
+    blend_range = begin.blend > end_.blend and begin.blend - end_.blend or end_.blend - begin.blend
+  end
 
   local row_speed = row_range / (time * fps)
   local col_speed = col_range / (time * fps)
   local width_speed = width_range / (time * fps)
   local height_speed = height_range / (time * fps)
+  local blend_speed
+  if blend_range then
+    blend_speed = blend_range / (time * fps)
+  end
 
   if begin.row > end_.row then row_speed = row_speed * -1 end
   if begin.col > end_.col then col_speed = col_speed * -1 end
   if begin.width > end_.width then width_speed = width_speed * -1 end
   if begin.height > end_.height then height_speed = height_speed * -1 end
+  if blend_speed and begin.blend > end_.blend then blend_speed = blend_speed * -1 end
 
   local frame = 0
   local end_frame = time * fps
@@ -219,15 +248,14 @@ function Window:animate(time, fps, end_, on_finish)
       col = col_speed,
       width = width_speed,
       height = height_speed,
+      blend = blend_speed,
     }
     self:update()
     frame = frame + 1
     if frame == end_frame then
       self.state = end_
+      self._window.border = self.state.border
       self:update()
-      if self.win then
-        self.state = WindowState.new(vim.api.nvim_win_get_config(self.win))
-      end
       if on_finish then
         on_finish()
       end
@@ -236,62 +264,88 @@ function Window:animate(time, fps, end_, on_finish)
     end
   end
   animate()
+  return self
 end
 
 ---add {handler} to {event} with {pattern}
----@param event string
+---@param event string|string[]
 ---@param pattern? string|string[]
 ---@param handler function|string
+---@return windui.Window
 function Window:on(event, pattern, handler)
-  local event_opts = {
-    pattern = pattern,
-    group = "WindUI",
-    buffer = self.buf,
-    callback = type(handler) == "function" and handler or nil,
-    command = type(handler) == "string" and handler or nil,
-  }
-  if not self._events[event] then
-    self._events[event] = {}
-  end
-  table.insert(self._events[event], {
-    pattern = pattern,
-    callback = event_opts.callback,
-    command = event_opts.command,
-  })
+  if type(event) == "table" then
+    for _, ev in ipairs(event) do
+      self:on(ev, pattern, handler)
+    end
+  else
+    local event_opts = {
+      pattern = pattern,
+      group = "WindUI",
+      buffer = self.buf,
+      callback = type(handler) == "function" and handler or nil,
+      command = type(handler) == "string" and handler or nil,
+    }
+    if not self._events[event] then
+      self._events[event] = {}
+    end
+    table.insert(self._events[event], {
+      pattern = pattern,
+      callback = event_opts.callback,
+      command = event_opts.command,
+    })
 
-  if not self.win then return end
-  vim.api.nvim_create_augroup("WindUI", {})
-  vim.api.nvim_create_autocmd(event, event_opts)
+    if not self.win then return self end
+    vim.api.nvim_create_augroup("WindUI", { clear = false })
+    vim.api.nvim_create_autocmd(event, event_opts)
+  end
+  return self
 end
 
 ---remove {event} handler with {pattern}
----@param event string
+---@param event string|string[]
 ---@param pattern? string|string[]
+---@return windui.Window
 function Window:off(event, pattern)
-  if self._events[event] then
-    self._events[event] = vim.tbl_filter(function(val)
-      if val.pattern then
-        return not (pattern and val.pattern == pattern)
-      else
-        return false
-      end
-    end, self._events[event])
-  end
+  if type(event) == "table" then
+    for _, ev in ipairs(event) do
+      self:off(ev, pattern)
+    end
+  else
+    if self._events[event] then
+      self._events[event] = vim.tbl_filter(function(val)
+        if val.pattern then
+          return not (pattern and val.pattern == pattern)
+        else
+          return false
+        end
+      end, self._events[event])
+    end
 
-  if not self.win then return end
-  vim.api.nvim_clear_autocmds({
-    event = event,
-    pattern = pattern,
-    buffer = self.buf,
-    group = "WindUI",
-  })
+    if not self.win then return self end
+    vim.api.nvim_clear_autocmds({
+      event = event,
+      pattern = pattern,
+      buffer = self.buf,
+      group = "WindUI",
+    })
+  end
+  return self
 end
 
 ---play {anim} on window
 ---@param anim windui.Animation
+---@param on_finish? function
+---@return windui.Window
 function Window:play(anim, on_finish)
   if not self.win then return self end
   anim:play(self, on_finish)
+  return self
+end
+
+---focus to the window
+---@return windui.Window
+function Window:focus()
+  vim.api.nvim_set_current_win(self.win)
   return self
 end
 

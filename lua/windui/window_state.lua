@@ -3,22 +3,21 @@ local flr = math.floor
 ---@alias windui.anim_frame.position "left" | "top_left" | "top" | "top_right" | "right" | "bottom_right" | "bottom" | "bottom_left" | "center"
 
 ---@class windui.WindowState
----@field col number
----@field row number
----@field width number
----@field height number
----@field border windui.border
+---@field class_name string
+---@field col? number
+---@field row? number
+---@field width? number
+---@field height? number
+---@field border? windui.border
+---@field blend? integer
 local WindowState = {
-  col = 0,
-  row = 0,
-  width = 0,
-  height = 0,
+  class_name = "WindowState",
 }
 
 ---@generic T
 ---@alias windui.wrap fun(value: T): T
----@alias windui.anim_frame.opts { col?: number, row?: number, width?: number, height?: number, border?: windui.border }
----@alias windui.anim_frame.map_opts { col?: windui.wrap<number>, row?: windui.wrap<number>, width?: windui.wrap<number>, height?: windui.wrap<number>, border?: windui.wrap<windui.border> }
+---@alias windui.anim_frame.opts { col?: number, row?: number, width?: number, height?: number, border?: windui.border, blend?: integer }
+---@alias windui.anim_frame.map_opts { col?: windui.wrap<number>, row?: windui.wrap<number>, width?: windui.wrap<number>, height?: windui.wrap<number>, border?: windui.wrap<windui.border>, bend?: windui.wrap<integer> }
 
 ---create new window state
 ---@param opts? windui.anim_frame.opts
@@ -29,11 +28,12 @@ function WindowState.new(opts)
     __index = WindowState,
   })
   if opts then
-    o.col = opts.col or WindowState.col
-    o.row = opts.row or WindowState.row
-    o.width = opts.width or WindowState.width
-    o.height = opts.height or WindowState.height
-    o.border = opts.border or WindowState.border
+    o.col = opts.col
+    o.row = opts.row
+    o.width = opts.width
+    o.height = opts.height
+    o.border = opts.border
+    o.blend = opts.blend
   end
   return o
 end
@@ -51,6 +51,8 @@ function WindowState:clone(opts)
   o.row = opts.row or self.row
   o.width = opts.width or self.width
   o.height = opts.height or self.height
+  o.blend = opts.blend or self.blend
+  o.border = opts.border or self.border
   return o
 end
 
@@ -81,10 +83,12 @@ end
 ---@return windui.WindowState
 function WindowState:move_to(direction)
   local bordered = not (self.border == "none")
+  local lines = vim.o.lines
+  local columns = vim.o.columns
   return ({
     left = function()
       return self:clone {
-        row = flr(vim.o.lines / 2) - flr(self.height / 2) - (bordered and 1 or 0),
+        row = flr(lines / 2) - flr(self.height / 2) - (bordered and 1 or 0),
         col = 0,
       }
     end,
@@ -92,43 +96,43 @@ function WindowState:move_to(direction)
     top = function()
       return self:clone {
         row = 0,
-        col = flr(vim.o.columns / 2) - flr(self.width / 2) - (bordered and 1 or 0),
+        col = flr(columns / 2) - flr(self.width / 2) - (bordered and 1 or 0),
       }
     end,
     top_right = function()
       return self:clone {
         row = 0,
-        col = vim.o.columns - self.width - (bordered and 1 or 0),
+        col = columns - self.width - (bordered and 1 or 0),
       }
     end,
     right = function()
       return self:clone {
-        row = flr(vim.o.lines / 2) - (self.height / 2) - (bordered and 1 or 0),
-        col = vim.o.columns - self.width - (bordered and 1 or 0),
+        row = flr(lines / 2) - (self.height / 2) - (bordered and 1 or 0),
+        col = columns - self.width - (bordered and 1 or 0),
       }
     end,
     bottom_right = function()
       return self:clone {
-        row = vim.o.lines - self.height - (bordered and 1 or 0),
-        col = vim.o.columns - self.width - (bordered and 1 or 0),
+        row = lines - self.height - (bordered and 1 or 0),
+        col = columns - self.width - (bordered and 1 or 0),
       }
     end,
     bottom = function()
       return self:clone {
-        row = vim.o.lines - self.height - (bordered and 1 or 0),
-        col = flr(vim.o.columns / 2) - flr(self.width / 2) - (bordered and 1 or 0),
+        row = lines - self.height - (bordered and 1 or 0),
+        col = flr(columns / 2) - flr(self.width / 2) - (bordered and 1 or 0),
       }
     end,
     bottom_left = function()
       return self:clone {
-        row = vim.o.lines - self.height - (bordered and 1 or 0),
+        row = lines - self.height - (bordered and 1 or 0),
         col = 0,
       }
     end,
     center = function()
       return self:clone {
-        row = flr(vim.o.lines / 2) - (self.height / 2) - (bordered and 1 or 0),
-        col = flr(vim.o.columns / 2) - flr(self.width / 2) - (bordered and 1 or 0),
+        row = flr(lines / 2) - (self.height / 2) - (bordered and 1 or 0),
+        col = flr(columns / 2) - flr(self.width / 2) - (bordered and 1 or 0),
       }
     end
   })[direction]()
