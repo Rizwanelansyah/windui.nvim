@@ -9,7 +9,7 @@ local util        = require("windui.util")
 ---@field spacing integer
 ---@field main integer
 ---@field opened boolean
-local Stack       = {
+local Stack = {
   class_name = "Stack",
 }
 
@@ -66,6 +66,9 @@ function Stack:open(enter)
     window.child:open(i == self.main)
   end)
   self.opened = true
+  if self.after_open then
+    self:after_open()
+  end
   return self
 end
 
@@ -74,6 +77,9 @@ end
 ---@return windui.Stack
 function Stack:close(force)
   if not self.opened then return self end
+  if self.before_close then
+    self:before_close(function()end)
+  end
   self.state.border = "none"
   for _, window in ipairs(self.windows) do
     window.child:close(force)
@@ -129,23 +135,24 @@ function Stack:update_states(state, callback)
   for i, window in ipairs(self.windows) do
     local winstate = self.state:clone {}
     winstate.border = window.child.state.border
-    local borderred = winstate.border ~= "none"
-    local addition = (borderred and 2 or 0)
+    local borderred = winstate:is_bordered()
+    local vert_add = (borderred.top and 1 or 0) + (borderred.bottom and 1 or 0)
+    local horiz_add = (borderred.left and 1 or 0) + (borderred.right and 1 or 0)
     if self.vertical then
-      winstate.height = sizes[i] - addition - (i ~= len and self.spacing or 0)
-      winstate.width = self.state.width - addition
+      winstate.height = sizes[i] - vert_add - (i ~= len and self.spacing or 0)
+      winstate.width = self.state.width - horiz_add
       winstate.row = winstate.row + offset
     else
-      winstate.width = sizes[i] - addition - (i ~= len and self.spacing or 0)
-      winstate.height = self.state.height - addition
+      winstate.width = sizes[i] - horiz_add - (i ~= len and self.spacing or 0)
+      winstate.height = self.state.height - vert_add
       winstate.col = winstate.col + offset
     end
     if winstate.height < 1 then
-      winstate.height = self.state.height - (self.state.height < 3 and 0 or addition)
+      winstate.height = self.state.height - (self.state.height < 3 and 0 or horiz_add)
       winstate.row = self.state.row
     end
     if winstate.width < 1 then
-      winstate.width = self.state.width - (self.state.width < 3 and 0 or addition)
+      winstate.width = self.state.width - (self.state.width < 3 and 0 or vert_add)
       winstate.col = self.state.col
     end
     winstates[i] = winstate

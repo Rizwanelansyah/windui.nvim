@@ -9,6 +9,7 @@ local Item = require("windui.item")
 ---@field name string
 local Menu = {
   class_name = "Menu",
+  on_choice = function() end,
 }
 setmetatable(Menu, { __index = Window })
 
@@ -18,31 +19,18 @@ setmetatable(Menu, { __index = Window })
 ---@param name? string
 ---@return windui.Menu
 function Menu.new(config, items, name)
-  local o = Window.new(config) --[[@as windui.Menu ]]
-  setmetatable(o, {
+  local self = Window.new(config) --[[@as windui.Menu ]]
+  setmetatable(self, {
     __index = Menu,
   })
-  o.items = items
-  o.name = name or "Menu"
-  if o._window.border ~= "none" then
-    o._window.title = o._window.title or o.name
+  self.items = items
+  self.name = name or "Menu"
+  if self._window.border ~= "none" then
+    self._window.title = self._window.title or self.name
   end
-  o.opt.win.cursorline = true
-  o.opt.win.winhl = "Normal:Pmenu,CursorLine:PmenuSel,FloatBorder:Pmenu,Title:Pmenu"
-  o.opt.win.scrolloff = 0
-  return o
-end
-
----open menu
----@param enter boolean
-function Menu:open(enter)
-  Window.open(self, enter)
-  local pos = vim.api.nvim_win_get_cursor(self.win)
-  if self.state.border ~= "none" then
-    self._window.title = string.format("%s (%d/%d)", self.name, pos[1], vim.fn.line('$'))
-    self:update()
-  end
-  vim.cmd("normal! 0")
+  self.opt.win.cursorline = true
+  self.opt.win.winhl = "Normal:Pmenu,CursorLine:PmenuSel,FloatBorder:Pmenu,Title:Pmenu"
+  self.opt.win.scrolloff = 0
 
   local close = function()
     if self.parent then
@@ -62,6 +50,19 @@ function Menu:open(enter)
 
   self:map('n', '<ESC>', close)
   self:map('n', '<CR>', function() self:choice() end)
+  return self
+end
+
+---open menu
+---@param enter boolean
+function Menu:open(enter)
+  Window.open(self, enter)
+  local pos = vim.api.nvim_win_get_cursor(self.win)
+  if self.state.border ~= "none" then
+    self._window.title = string.format("%s (%d/%d)", self.name, pos[1], vim.fn.line('$'))
+    self:update()
+  end
+  vim.cmd("normal! 0")
 
   for i, item in ipairs(self.items) do
     if item.class_name == Item.class_name then
@@ -118,6 +119,7 @@ function Menu:choice()
         col = self.state.width,
         row = vim.api.nvim_win_get_cursor(self.win)[1] - 1,
       }
+      item._window.zindex = vim.api.nvim_win_get_config(self.win).zindex + 1
       item:open(true)
     end
   end

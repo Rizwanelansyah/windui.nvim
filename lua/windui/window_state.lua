@@ -1,5 +1,6 @@
 local flr = math.floor
----@alias windui.border "none"|"single"|"rounded"|"double"|"solid"|string[]|string[][]
+local util = require("windui.util")
+---@alias windui.border "none"|"single"|"rounded"|"double"|"solid"|"shadow"|string[]|string[][]
 ---@alias windui.relative 'editor'|'win'|'cursor'|'mouse'
 ---@alias windui.anim_frame.position "left" | "top_left" | "top" | "top_right" | "right" | "bottom_right" | "bottom" | "bottom_left" | "center"
 
@@ -95,60 +96,74 @@ end
 ---@param direction windui.anim_frame.position
 ---@return windui.WindowState
 function WindowState:move_to(direction)
-  local bordered = not (self.border == "none")
+  local bordered = self:is_bordered() --[[@as table]]
+  bordered.vertical = bordered.top and bordered.bottom
+  bordered.horizontal = bordered.left and bordered.right
   local lines = vim.o.lines
   local columns = vim.o.columns
   return ({
-    left = function()
-      return self:clone {
-        row = flr(lines / 2) - flr(self.height / 2) - (bordered and 1 or 0),
-        col = 0,
-      }
-    end,
     top_left = function() return self:clone { row = 0, col = 0 } end,
     top = function()
       return self:clone {
         row = 0,
-        col = flr(columns / 2) - flr(self.width / 2) - (bordered and 1 or 0),
+        col = flr(columns / 2) - flr(self.width / 2) - (bordered.horizontal and 1 or 0),
       }
     end,
     top_right = function()
       return self:clone {
         row = 0,
-        col = columns - self.width - (bordered and 1 or 0),
+        col = columns - self.width - (bordered.left and 1 or 0) - (bordered.right and 1 or 0),
       }
     end,
     right = function()
       return self:clone {
-        row = flr(lines / 2) - (self.height / 2) - (bordered and 1 or 0),
-        col = columns - self.width - (bordered and 1 or 0),
+        row = flr(lines / 2) - (self.height / 2) - (bordered.vertical and 1 or 0),
+        col = columns - self.width - (bordered.left and 1 or 0) - (bordered.right and 1 or 0),
       }
     end,
     bottom_right = function()
       return self:clone {
-        row = lines - self.height - (bordered and 1 or 0),
-        col = columns - self.width - (bordered and 1 or 0),
+        row = lines - self.height - (bordered.top and 1 or 0) - (bordered.bottom and 1 or 0),
+        col = columns - self.width - (bordered.left and 1 or 0) - (bordered.right and 1 or 0),
       }
     end,
     bottom = function()
       return self:clone {
-        row = lines - self.height - (bordered and 1 or 0),
-        col = flr(columns / 2) - flr(self.width / 2) - (bordered and 1 or 0),
+        row = lines - self.height - (bordered.top and 1 or 0) - (bordered.bottom and 1 or 0),
+        col = flr(columns / 2) - flr(self.width / 2) - (bordered.horizontal and 1 or 0),
       }
     end,
     bottom_left = function()
       return self:clone {
-        row = lines - self.height - (bordered and 1 or 0),
+        row = lines - self.height - (bordered.top and 1 or 0) - (bordered.bottom and 1 or 0),
+        col = 0,
+      }
+    end,
+    left = function()
+      return self:clone {
+        row = flr(lines / 2) - flr(self.height / 2) - (bordered.vertical and 1 or 0),
         col = 0,
       }
     end,
     center = function()
       return self:clone {
-        row = flr(lines / 2) - (self.height / 2) - (bordered and 1 or 0),
-        col = flr(columns / 2) - flr(self.width / 2) - (bordered and 1 or 0),
+        row = flr(lines / 2) - (self.height / 2) - (bordered.vertical and 1 or 0),
+        col = flr(columns / 2) - flr(self.width / 2) - (bordered.horizontal and 1 or 0),
       }
-    end
+    end,
   })[direction]()
+end
+
+---check if each side state is bordered
+---@return { top: boolean, right: boolean, bottom: boolean, left: boolean }
+function WindowState:is_bordered()
+  local bordered = {}
+  local parts = util.ui.get_border_parts(self.border)
+  bordered.top = parts[2] ~= ''
+  bordered.right = parts[4] ~= ''
+  bordered.bottom = parts[6] ~= ''
+  bordered.left = parts[8] ~= ''
+  return bordered
 end
 
 return WindowState

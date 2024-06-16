@@ -9,6 +9,8 @@ local WindowState = require("windui.window_state")
 ---@field unmap fun(self: windui.UIComponent, mode: string|string[], lhs: string): windui.UIComponent
 ---@field on fun(self: windui.UIComponent, event: string|string[], pattern?: string|string[], handler: string|fun(self: windui.Window)): windui.UIComponent
 ---@field off fun(self: windui.UIComponent, event: string|string[], pattern?: string|string[]): windui.UIComponent
+---@field after_open fun(self: windui.UIComponent)
+---@field before_close fun(self: windui.UIComponent, close: function)
 ---@field animate fun(self: windui.UIComponent, time: number, fps: integer, state: windui.WindowState, on_finish?: function): windui.UIComponent
 
 ---@class windui.Window: windui.UIComponent
@@ -19,8 +21,6 @@ local WindowState = require("windui.window_state")
 ---@field state windui.WindowState
 ---@field win integer?
 ---@field buf integer?
----@field after_open fun(self: windui.Window)
----@field before_close fun(self: windui.Window, close: function)
 ---@field opt { buf: table, win: table }
 local Window = {
   class_name = "Window",
