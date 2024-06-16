@@ -5,9 +5,9 @@ local WindowState = require("windui.window_state")
 ---@field close fun(self: windui.UIComponent, force?: boolean): windui.UIComponent
 ---@field update fun(self: windui.UIComponent, state?: windui.WindowState): windui.UIComponent
 ---@field focus fun(self: windui.UIComponent): windui.UIComponent
----@field map fun(self: windui.UIComponent, mode: string|string[], lhs: string, rhs: function|string): windui.UIComponent
+---@field map fun(self: windui.UIComponent, mode: string|string[], lhs: string, rhs: string|fun(self: windui.Window)): windui.UIComponent
 ---@field unmap fun(self: windui.UIComponent, mode: string|string[], lhs: string): windui.UIComponent
----@field on fun(self: windui.UIComponent, event: string|string[], pattern?: string|string[], handler: string|function): windui.UIComponent
+---@field on fun(self: windui.UIComponent, event: string|string[], pattern?: string|string[], handler: string|fun(self: windui.Window)): windui.UIComponent
 ---@field off fun(self: windui.UIComponent, event: string|string[], pattern?: string|string[]): windui.UIComponent
 ---@field animate fun(self: windui.UIComponent, time: number, fps: integer, state: windui.WindowState, on_finish?: function): windui.UIComponent
 
@@ -19,8 +19,9 @@ local WindowState = require("windui.window_state")
 ---@field state windui.WindowState
 ---@field win integer?
 ---@field buf integer?
----@field after_open function
----@field before_close fun(close: function)
+---@field after_open fun(self: windui.Window)
+---@field before_close fun(self: windui.Window, close: function)
+---@field opt { buf: table, win: table }
 local Window = {
   class_name = "Window",
 }
@@ -30,7 +31,7 @@ local Window = {
 ---@return windui.Window
 function Window.new(config)
   ---@type windui.Window
-  local t = { _mappings = {}, _events = {}, opt = {} }
+  local t = { _mappings = {}, _events = {}, opt = { buf = {}, win = {} } }
   setmetatable(t, {
     __index = Window,
   })
@@ -74,8 +75,12 @@ function Window:open(enter)
   vim.api.nvim_create_augroup("WindUI", { clear = false })
   for event, events in pairs(self._events) do
     for _, opt in ipairs(events) do
+      local group = opt.group
+      if type(group) == "string" then
+        group = vim.api.nvim_create_augroup(group, { clear = false })
+      end
       vim.api.nvim_create_autocmd(event, {
-        group = "WindUI",
+        group = group,
         buffer = self.buf,
         pattern = opt.pattern,
         callback = opt.callback,
@@ -96,9 +101,16 @@ function Window:open(enter)
   local config = vim.tbl_extend('force', self._window, self.state)
   config.blend = nil
   self.win = vim.api.nvim_open_win(self.buf, enter, config)
+  for wo, value in pairs(self.opt.win) do
+    vim.wo[self.win][wo] = value
+  end
+  for bo, value in pairs(self.opt.buf) do
+    vim.bo[self.buf][bo] = value
+  end
   vim.wo[self.win].winblend = self.state.blend
+
   if self.after_open then
-    self.after_open()
+    self:after_open()
   end
   return self
 end
@@ -122,12 +134,17 @@ function Window:close(force)
         end
       end
       vim.api.nvim_clear_autocmds { group = "WindUI", buffer = self.buf }
-      vim.api.nvim_buf_delete(self.buf --[[@as integer]], { force = force })
+      for event, opts in pairs(self._events) do
+        for _, opt in ipairs(opts) do
+          vim.api.nvim_clear_autocmds { event = event, buffer = self.buf, group = opt.group, pattern = opt.pattern }
+        end
+      end
+      vim.api.nvim_buf_delete(self.buf, { force = force })
       self.buf = nil
     end
   end
   if self.before_close then
-    self.before_close(close_win)
+    self:before_close(close_win)
   else
     close_win()
   end
@@ -196,6 +213,12 @@ function Window:update(state)
   })
   config.blend = nil
   vim.api.nvim_win_set_config(self.win, config)
+  for wo, value in pairs(self.opt.win) do
+    vim.wo[self.win][wo] = value
+  end
+  for bo, value in pairs(self.opt.buf) do
+    vim.bo[self.buf][bo] = value
+  end
   vim.wo[self.win].winblend = math.floor(self.state.blend or 0)
   return self
 end
@@ -263,19 +286,24 @@ function Window:animate(time, fps, end_, on_finish)
 end
 
 ---add {handler} to {event} with {pattern}
+---if {group} not exists create it
 ---@param event string|string[]
 ---@param pattern? string|string[]
 ---@param handler function|string
+---@param group? string|integer
 ---@return windui.Window
-function Window:on(event, pattern, handler)
+function Window:on(event, pattern, handler, group)
   if type(event) == "table" then
     for _, ev in ipairs(event) do
-      self:on(ev, pattern, handler)
+      self:on(ev, pattern, handler, group)
     end
   else
+    if type(group) == "string" or group == nil then
+      group = vim.api.nvim_create_augroup(group or "WindUI", { clear = false })
+    end
     local event_opts = {
       pattern = pattern,
-      group = "WindUI",
+      group = group,
       buffer = self.buf,
       callback = type(handler) == "function" and handler or nil,
       command = type(handler) == "string" and handler or nil,
@@ -285,6 +313,7 @@ function Window:on(event, pattern, handler)
     end
     table.insert(self._events[event], {
       pattern = pattern,
+      group = group,
       callback = event_opts.callback,
       command = event_opts.command,
     })
@@ -299,20 +328,28 @@ end
 ---remove {event} handler with {pattern}
 ---@param event string|string[]
 ---@param pattern? string|string[]
+---@param group? string|integer
 ---@return windui.Window
-function Window:off(event, pattern)
+function Window:off(event, pattern, group)
   if type(event) == "table" then
     for _, ev in ipairs(event) do
-      self:off(ev, pattern)
+      self:off(ev, pattern, group)
     end
   else
     if self._events[event] then
       self._events[event] = vim.tbl_filter(function(val)
-        if val.pattern then
-          return not (pattern and val.pattern == pattern)
-        else
-          return false
+        if not group and not pattern then return false end
+        if type(group) == "string" then
+          group = vim.api.nvim_create_augroup(group, { clear = false })
         end
+        local res = true
+        if pattern then
+          res = val.pattern ~= pattern
+        end
+        if group then
+          res = res and val.group ~= group
+        end
+        return res
       end, self._events[event])
     end
 
