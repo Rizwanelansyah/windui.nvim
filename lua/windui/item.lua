@@ -18,4 +18,11 @@ function Item.new(value, text)
   return o
 end
 
+---render this item into buffer
+---@param buf integer
+---@param line integer
+function Item:render(buf, line)
+  vim.api.nvim_buf_set_lines(buf, line - 1, line, false, { self.text })
+end
+
 return Item

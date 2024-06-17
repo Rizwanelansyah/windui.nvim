@@ -29,7 +29,7 @@ function Menu.new(config, items, name)
     self.window.title = self.window.title or self.name
   end
   self.opt.win.cursorline = true
-  self.opt.win.winhl = "Normal:Pmenu,CursorLine:PmenuSel,FloatBorder:Pmenu,Title:Pmenu"
+  self.opt.win.winhl = "CursorLine:PmenuSel"
   self.opt.win.scrolloff = 0
 
   local close = function()
@@ -56,17 +56,17 @@ end
 ---open menu
 ---@param enter boolean
 function Menu:open(enter)
+  vim.cmd("normal! 0")
   Window.open(self, enter)
   local pos = vim.api.nvim_win_get_cursor(self.win)
   if self.state.border ~= "none" then
     self.window.title = string.format("%s (%d/%d)", self.name, pos[1], vim.fn.line('$'))
     self:update()
   end
-  vim.cmd("normal! 0")
 
   for i, item in ipairs(self.items) do
     if item.class_name == Item.class_name then
-      vim.api.nvim_buf_set_lines(self.buf, i - 1, i, false, { item.text })
+      item:render(self.buf, i)
     elseif item.class_name == Menu.class_name then
       vim.api.nvim_buf_set_lines(self.buf, i - 1, i, false, { "> " .. item.name })
     end
@@ -96,6 +96,34 @@ end
 ---@return windui.Menu|windui.Menu.Item
 function Menu:get_item()
   return self.items[vim.api.nvim_win_get_cursor(self.win)[1]]
+end
+
+---set the cursor position to the specified item
+---@param value (fun(item: windui.Menu|windui.Menu.Item): boolean)|any
+function Menu:set_selected(value)
+  if not self.win then return end
+  local row = vim.api.nvim_win_get_cursor(self.win)[1]
+  for i, item in ipairs(self.items) do
+    if type(value) == "function" then
+      if value(item) then
+        row = i
+        break
+      end
+    else
+      if item.class_name == Item.class_name then
+        if item.value == value then
+          row = i
+          break
+        end
+      elseif item.class_name == Menu.class_name then
+        if item.name == value then
+          row = i
+          break
+        end
+      end
+    end
+  end
+  vim.api.nvim_win_set_cursor(self.win, { row, 0 })
 end
 
 ---exit and execute self.on_choice passed
