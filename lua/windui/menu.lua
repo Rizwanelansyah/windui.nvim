@@ -25,8 +25,8 @@ function Menu.new(config, items, name)
   })
   self.items = items
   self.name = name or "Menu"
-  if self._window.border ~= "none" then
-    self._window.title = self._window.title or self.name
+  if self.window.border ~= "none" then
+    self.window.title = self.window.title or self.name
   end
   self.opt.win.cursorline = true
   self.opt.win.winhl = "Normal:Pmenu,CursorLine:PmenuSel,FloatBorder:Pmenu,Title:Pmenu"
@@ -59,7 +59,7 @@ function Menu:open(enter)
   Window.open(self, enter)
   local pos = vim.api.nvim_win_get_cursor(self.win)
   if self.state.border ~= "none" then
-    self._window.title = string.format("%s (%d/%d)", self.name, pos[1], vim.fn.line('$'))
+    self.window.title = string.format("%s (%d/%d)", self.name, pos[1], vim.fn.line('$'))
     self:update()
   end
   vim.cmd("normal! 0")
@@ -87,7 +87,7 @@ function Menu:move(range, cycle)
   end
   pos = vim.api.nvim_win_get_cursor(self.win)
   if self.state.border ~= "none" then
-    self._window.title = string.format("%s (%d/%d)", self.name, pos[1], vim.fn.line('$'))
+    self.window.title = string.format("%s (%d/%d)", self.name, pos[1], vim.fn.line('$'))
     self:update()
   end
 end
@@ -119,7 +119,7 @@ function Menu:choice()
         col = self.state.width,
         row = vim.api.nvim_win_get_cursor(self.win)[1] - 1,
       }
-      item._window.zindex = vim.api.nvim_win_get_config(self.win).zindex + 1
+      item.window.zindex = vim.api.nvim_win_get_config(self.win).zindex + 1
       item:open(true)
     end
   end

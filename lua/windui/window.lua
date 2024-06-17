@@ -15,9 +15,9 @@ local WindowState = require("windui.window_state")
 
 ---@class windui.Window: windui.UIComponent
 ---@field class_name string
----@field protected _window vim.api.keyset.win_config
 ---@field protected _mappings table<string, table<string, string|function>>
 ---@field protected _events table<string, vim.api.keyset.create_autocmd[]>
+---@field window vim.api.keyset.win_config
 ---@field state windui.WindowState
 ---@field win integer?
 ---@field buf integer?
@@ -35,7 +35,7 @@ function Window.new(config)
   setmetatable(t, {
     __index = Window,
   })
-  t._window = vim.tbl_extend('force', {
+  t.window = vim.tbl_extend('force', {
     col = 0,
     row = 0,
     height = 1,
@@ -46,7 +46,7 @@ function Window.new(config)
     hide = false,
     focusable = true,
   }, config or {})
-  t.state = WindowState.new(t._window)
+  t.state = WindowState.new(t.window)
   return t
 end
 
@@ -98,7 +98,7 @@ function Window:open(enter)
     end
   })
 
-  local config = vim.tbl_extend('force', self._window, self.state)
+  local config = vim.tbl_extend('force', self.window, self.state)
   config.blend = nil
   self.win = vim.api.nvim_open_win(self.buf, enter, config)
   for wo, value in pairs(self.opt.win) do
@@ -195,9 +195,9 @@ function Window:update(state)
   if state then
     self.state = state
   end
-  self._window = vim.tbl_extend('force', self._window, self.state)
+  self.window = vim.tbl_extend('force', self.window, self.state)
   ---@diagnostic disable-next-line: inject-field
-  self._window.blend = nil
+  self.window.blend = nil
   if not self.win then return self end
   local function floor_or(alt)
     return function(num)
@@ -205,7 +205,7 @@ function Window:update(state)
       return result <= 0 and alt or result
     end
   end
-  local config = vim.tbl_extend('force', self._window, self.state:map {
+  local config = vim.tbl_extend('force', self.window, self.state:map {
     width = floor_or(1),
     height = floor_or(1),
     row = floor_or(0),
@@ -272,7 +272,7 @@ function Window:animate(time, fps, end_, on_finish)
     frame = frame + 1
     if frame == end_frame then
       self.state = end_
-      self._window.border = self.state.border
+      self.window.border = self.state.border
       self:update()
       if on_finish then
         on_finish()
