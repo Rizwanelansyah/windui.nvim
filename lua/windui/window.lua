@@ -1,19 +1,22 @@
 local WindowState = require("windui.window_state")
----@class windui.UIComponent
+---@class windui.Component
 ---@field state windui.WindowState
----@field open fun(self: windui.UIComponent, enter?: boolean): windui.UIComponent
----@field close fun(self: windui.UIComponent, force?: boolean): windui.UIComponent
----@field update fun(self: windui.UIComponent, state?: windui.WindowState): windui.UIComponent
----@field focus fun(self: windui.UIComponent): windui.UIComponent
----@field map fun(self: windui.UIComponent, mode: string|string[], lhs: string, rhs: string|fun(self: windui.Window)): windui.UIComponent
----@field unmap fun(self: windui.UIComponent, mode: string|string[], lhs: string): windui.UIComponent
----@field on fun(self: windui.UIComponent, event: string|string[], pattern?: string|string[], handler: string|fun(self: windui.Window)): windui.UIComponent
----@field off fun(self: windui.UIComponent, event: string|string[], pattern?: string|string[]): windui.UIComponent
----@field after_open fun(self: windui.UIComponent)
----@field before_close fun(self: windui.UIComponent, close: function)
----@field animate fun(self: windui.UIComponent, time: number, fps: integer, state: windui.WindowState, on_finish?: function): windui.UIComponent
+---@field open fun(self: self, enter?: boolean): self
+---@field close fun(self: self, force?: boolean): self
+---@field update fun(self: self, state?: windui.WindowState): self
+---@field focus fun(self: self): self
+---@field map fun(self: self, mode: string|string[], lhs: string, rhs: string|fun(self: self)): self
+---@field unmap fun(self: self, mode: string|string[], lhs: string): self
+---@field on fun(self: self, event: string|string[], pattern?: string|string[], handler: string|fun(self: self)): self
+---@field off fun(self: self, event: string|string[], pattern?: string|string[]): self
+---@field after_open fun(self: self)
+---@field before_close fun(self: self, close: function)
+---@field animate fun(self: self, time: number, fps: integer, state: windui.WindowState, on_finish?: function): self
 
----@class windui.Window: windui.UIComponent
+---@class windui.Layout: windui.Component
+---@field opened boolean
+
+---@class windui.Window: windui.Component
 ---@field class_name string
 ---@field protected _mappings table<string, table<string, string|function>>
 ---@field protected _events table<string, vim.api.keyset.create_autocmd[]>
@@ -198,9 +201,12 @@ function Window:update(state)
   self.window = vim.tbl_extend('force', self.window, self.state)
   ---@diagnostic disable-next-line: inject-field
   self.window.blend = nil
-  if not self.win then return self end
+  if not self.win then
+    self:open(false)
+  end
   local function floor_or(alt)
     return function(num)
+      if not num then return end
       local result = math.floor(num)
       return result <= 0 and alt or result
     end
@@ -226,35 +232,77 @@ end
 ---animate window
 ---@param time integer
 ---@param fps integer
----@param end_ windui.WindowState
+---@param _end windui.WindowState
 ---@param on_finish? function
 ---@return windui.Window
-function Window:animate(time, fps, end_, on_finish)
+function Window:animate(time, fps, _end, on_finish)
   local begin = self.state
 
-  local row_range = begin.row > end_.row and begin.row - end_.row or end_.row - begin.row
-  local col_range = begin.col > end_.col and begin.col - end_.col or end_.col - begin.col
-  local width_range = begin.width > end_.width and begin.width - end_.width or end_.width - begin.width
-  local height_range = begin.height > end_.height and begin.height - end_.height or end_.height - begin.height
-  local blend_range
-  if begin.blend then
-    blend_range = begin.blend > end_.blend and begin.blend - end_.blend or end_.blend - begin.blend
+  local row_range
+  if begin.row or _end.row then
+    begin.row = begin.row or 0
+    _end.row = _end.row or 0
+    row_range = begin.row > _end.row and begin.row - _end.row or _end.row - begin.row
   end
 
-  local row_speed = row_range / (time * fps)
-  local col_speed = col_range / (time * fps)
-  local width_speed = width_range / (time * fps)
-  local height_speed = height_range / (time * fps)
+  local col_range
+  if begin.col or _end.col then
+    begin.col = begin.col or 0
+    _end.col = _end.col or 0
+    col_range = begin.col > _end.col and begin.col - _end.col or _end.col - begin.col
+  end
+
+  local width_range
+  if begin.width or _end.width then
+    begin.width = begin.width or 1
+    _end.width = _end.width or 1
+    width_range = begin.width > _end.width and begin.width - _end.width or _end.width - begin.width
+  end
+
+  local height_range
+  if begin.height or _end.height then
+    begin.height = begin.height or 1
+    _end.height = _end.height or 1
+    height_range = begin.height > _end.height and begin.height - _end.height or _end.height - begin.height
+  end
+
+  local blend_range
+  if begin.blend or _end.blend then
+    begin.blend = begin.blend or 0
+    _end.blend = _end.blend or 0
+    blend_range = begin.blend > _end.blend and begin.blend - _end.blend or _end.blend - begin.blend
+  end
+
+  local row_speed
+  if row_range then
+    row_speed = row_range / (time * fps)
+  end
+
+  local col_speed
+  if col_range then
+    col_speed = col_range / (time * fps)
+  end
+
+  local width_speed
+  if width_range then
+    width_speed = width_range / (time * fps)
+  end
+
+  local height_speed
+  if height_range then
+    height_speed = height_range / (time * fps)
+  end
+
   local blend_speed
   if blend_range then
     blend_speed = blend_range / (time * fps)
   end
 
-  if begin.row > end_.row then row_speed = row_speed * -1 end
-  if begin.col > end_.col then col_speed = col_speed * -1 end
-  if begin.width > end_.width then width_speed = width_speed * -1 end
-  if begin.height > end_.height then height_speed = height_speed * -1 end
-  if blend_speed and begin.blend > end_.blend then blend_speed = blend_speed * -1 end
+  if row_speed and begin.row > _end.row then row_speed = row_speed * -1 end
+  if col_speed and begin.col > _end.col then col_speed = col_speed * -1 end
+  if width_speed and begin.width > _end.width then width_speed = width_speed * -1 end
+  if height_speed and begin.height > _end.height then height_speed = height_speed * -1 end
+  if blend_speed and begin.blend > _end.blend then blend_speed = blend_speed * -1 end
 
   local frame = 0
   local end_frame = time * fps
@@ -271,7 +319,7 @@ function Window:animate(time, fps, end_, on_finish)
     self:update()
     frame = frame + 1
     if frame == end_frame then
-      self.state = end_
+      self.state = _end
       self.window.border = self.state.border
       self:update()
       if on_finish then

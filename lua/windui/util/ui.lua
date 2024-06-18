@@ -4,7 +4,7 @@ local M = {}
 ---@param border windui.border
 ---@return string[]
 function M.get_border_parts(border)
-  if border == "none" or border == "shadow" or #border == 0 then return { '', '', '', '', '', '', '', '' } end
+  if border == nil or border == "none" or border == "shadow" or #border == 0 then return { '', '', '', '', '', '', '', '' } end
   local chars = {}
   if type(border) == "string" then
     chars = ({

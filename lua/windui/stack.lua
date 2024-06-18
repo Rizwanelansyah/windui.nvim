@@ -1,26 +1,26 @@
 local WindowState = require("windui.window_state")
 local util        = require("windui.util")
 
----@class windui.Stack: windui.UIComponent
+---@class windui.Stack: windui.Layout
 ---@field class_name string
 ---@field vertical boolean
----@field windows ({ size: number, child: windui.UIComponent })[]
+---@field windows ({ size: number, child: windui.Component })[]
 ---@field state windui.WindowState
 ---@field spacing integer
 ---@field main integer
 ---@field opened boolean
-local Stack = {
+local Stack       = {
   class_name = "Stack",
 }
 
 ---create stack layout
----@param windows (windui.UIComponent|{ size: number, child: windui.UIComponent })[]
+---@param windows (windui.Component|{ size: number, child: windui.Component })[]
 ---@param opts? { main?: integer, state?: windui.WindowState, vertical?: boolean, spacing?: integer }
----@return windui.Stack
+---@return self
 function Stack.new(windows, opts)
   opts = vim.tbl_extend('force', {
     vertical = false,
-    main = 0,
+    main = 1,
     state = WindowState.new({
       width = vim.o.columns - 8,
       height = vim.o.lines - 8,
@@ -35,6 +35,7 @@ function Stack.new(windows, opts)
   end
 
   o.state = opts.state
+  o.state.border = "none"
   o.vertical = opts.vertical
   o.main = opts.main
   o.spacing = opts.spacing
@@ -53,7 +54,7 @@ end
 
 ---open stack layout if {enter} focus to main window
 ---@param enter? boolean
----@return windui.Stack
+---@return self
 function Stack:open(enter)
   if self.opened then return self end
   self.state.border = "none"
@@ -63,7 +64,7 @@ function Stack:open(enter)
 
   self:update_states(nil, function(window, state, i)
     window.child.state = state
-    window.child:open(i == self.main)
+    window.child:open(enter and i == self.main)
   end)
   self.opened = true
   if self.after_open then
@@ -74,29 +75,33 @@ end
 
 ---close stack layout
 ---@param force boolean
----@return windui.Stack
+---@return self
 function Stack:close(force)
   if not self.opened then return self end
-  if self.before_close then
-    self:before_close(function()end)
-  end
-  self.state.border = "none"
-  for _, window in ipairs(self.windows) do
-    window.child:close(force)
-  end
+  local function close()
+    for _, window in ipairs(self.windows) do
+      window.child:close(force)
+    end
 
-  self.opened = false
+    self.opened = false
+  end
+  if self.before_close then
+    self:before_close(close)
+  else
+    close()
+  end
   return self
 end
 
 ---update stack layout state only and
----and pass window and the update state for each window
+---pass window and the update state for each window to {callback}
 ---@param state? windui.WindowState
----@param callback fun(window: { size: integer, child: windui.UIComponent }, winstate: windui.WindowState, index: integer)
+---@param callback fun(window: { size: integer, child: windui.Component }, winstate: windui.WindowState, index: integer)
 function Stack:update_states(state, callback)
   if state then
     self.state = state
   end
+  self.state.border = "none"
 
   local max = self.state.width or 0
   local same_size = 0
@@ -134,7 +139,8 @@ function Stack:update_states(state, callback)
   local len = #self.windows
   for i, window in ipairs(self.windows) do
     local winstate = self.state:clone {}
-    winstate.border = window.child.state.border
+    winstate.border = window.child.state.border or self.state.border
+    winstate.blend = window.child.state.blend or self.state.blend
     local borderred = winstate:is_bordered()
     local vert_add = (borderred.top and 1 or 0) + (borderred.bottom and 1 or 0)
     local horiz_add = (borderred.left and 1 or 0) + (borderred.right and 1 or 0)
@@ -165,7 +171,7 @@ end
 
 ---update stack layout state
 ---@param state? windui.WindowState
----@return windui.Stack
+---@return self
 function Stack:update(state)
   self.state.border = "none"
   self:update_states(state, function(window, winstate)
@@ -180,7 +186,7 @@ end
 ---@param fps integer
 ---@param state? windui.WindowState
 ---@param on_finish? function
----@return windui.Stack
+---@return self
 function Stack:animate(time, fps, state, on_finish)
   if not self.opened then return self end
   self.state.border = "none"
@@ -194,7 +200,7 @@ end
 ---@param mode string|string[]
 ---@param lhs string
 ---@param rhs function|string
----@return windui.Stack
+---@return self
 function Stack:map(mode, lhs, rhs)
   for _, window in ipairs(self.windows) do
     window.child:map(mode, lhs, rhs)
@@ -205,7 +211,7 @@ end
 ---remove keymapping from stack layout
 ---@param mode any
 ---@param lhs any
----@return windui.Stack
+---@return self
 function Stack:unmap(mode, lhs)
   for _, window in ipairs(self.windows) do
     window.child:unmap(mode, lhs)
@@ -217,7 +223,7 @@ end
 ---@param event string|string[]
 ---@param pattern? string|string[]
 ---@param handler function|string
----@return windui.Stack
+---@return self
 function Stack:on(event, pattern, handler)
   for _, window in ipairs(self.windows) do
     window.child:on(event, pattern, handler)
@@ -228,7 +234,7 @@ end
 ---remove event handler from stack layout
 ---@param event string|string[]
 ---@param pattern? string|string[]
----@return windui.Stack
+---@return self
 function Stack:off(event, pattern)
   for _, window in ipairs(self.windows) do
     window.child:off(event, pattern)
@@ -239,7 +245,7 @@ end
 ---play animation
 ---@param anim windui.Animation
 ---@param on_finish? function
----@return windui.Stack
+---@return self
 function Stack:play(anim, on_finish)
   if not self.opened then return self end
   anim:play(self, on_finish)
@@ -247,7 +253,7 @@ function Stack:play(anim, on_finish)
 end
 
 ---focus to the main window
----@return windui.Stack
+---@return self
 function Stack:focus()
   if not self.opened then return self end
   local win = self.windows[self.main].child

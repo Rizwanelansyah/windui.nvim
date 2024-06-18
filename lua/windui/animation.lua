@@ -42,7 +42,7 @@ function Animation.with(time, fps, frames)
 end
 
 ---play animation on {win}
----@param comp windui.UIComponent
+---@param comp windui.Component
 ---@param on_finish? function
 function Animation:play(comp, on_finish)
   local i = 1
