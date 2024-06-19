@@ -58,12 +58,39 @@ function FlexBox:update_states(state, callback)
   local height = 0
   local curpos = 1
   for _, window in ipairs(self.windows) do
-    if self.vertical then
-    else
-      local bordered = window.state:is_bordered()
-      local w = window.state.width + (bordered.left and 1 or 0) + (bordered.right and 1 or 0)
-      local h = window.state.height + (bordered.top and 1 or 0) + (bordered.bottom and 1 or 0)
+    local bordered = window.state:is_bordered()
+    local w = window.state.width + (bordered.left and 1 or 0) + (bordered.right and 1 or 0)
+    local h = window.state.height + (bordered.top and 1 or 0) + (bordered.bottom and 1 or 0)
 
+    if self.vertical then
+      if h > self.state.height then
+        if not heights[curpos] then
+          heights[curpos] = { self.state.height }
+          table.insert(widths, w)
+        else
+          table.insert(widths, width)
+          heights[curpos + 1] = { self.state.height }
+          table.insert(widths, w)
+          curpos = curpos + 1
+        end
+        height = 0
+        width = 0
+        curpos = curpos + 1
+      elseif h <= self.state.height - height then
+        if w > width then
+          width = w
+        end
+        height = height + h
+        heights[curpos] = heights[curpos] or {}
+        table.insert(heights[curpos], h)
+      else
+        table.insert(widths, width)
+        height = h
+        width = w
+        curpos = curpos + 1
+        heights[curpos] = { h }
+      end
+    else
       if w > self.state.width then
         if not widths[curpos] then
           widths[curpos] = { self.state.width }
@@ -81,7 +108,7 @@ function FlexBox:update_states(state, callback)
         if h > height then
           height = h
         end
-        width = width + window.state.width
+        width = width + w
         widths[curpos] = widths[curpos] or {}
         table.insert(widths[curpos], w)
       else
@@ -93,12 +120,26 @@ function FlexBox:update_states(state, callback)
       end
     end
   end
-  if self.vertical and height ~= 0 then
-    table.insert(heights, height)
-  end
 
   local offsets = {}
   if self.vertical then
+    if self.align == "start" then
+      for i = 1, #heights do
+        offsets[i] = 0
+      end
+    else
+      for i, h in ipairs(heights) do
+        offsets[i] = 0
+        for _, num in ipairs(h) do
+          offsets[i] = offsets[i] + num
+        end
+        if self.align == "end" then
+          offsets[i] = self.state.height - offsets[i]
+        elseif self.align == "center" then
+          offsets[i] = math.floor(self.state.height / 2) - math.floor(offsets[i] / 2)
+        end
+      end
+    end
   else
     if self.align == "start" then
       for i = 1, #widths do
@@ -120,6 +161,29 @@ function FlexBox:update_states(state, callback)
   end
 
   if self.vertical then
+    local i = 1
+    local coloff = 0
+    ---@diagnostic disable-next-line: redefined-local
+    for j, height in ipairs(heights) do
+      local rowoff = offsets[j]
+      coloff = coloff + (widths[j - 1] or 0)
+      for _, h in ipairs(height) do
+        local window = self.windows[i]
+        local winstate = clone(window.state)
+        if winstate.width + coloff > self.state.width then
+          goto continue
+        end
+        winstate.relative = self.state.relative
+        winstate.border = winstate.border or self.state.border
+        winstate.blend = winstate.blend or self.state.blend
+        winstate.col = self.state.col + coloff
+        winstate.row = self.state.row + rowoff
+        winstates[i] = winstate
+        rowoff = rowoff + h
+        i = i + 1
+        ::continue::
+      end
+    end
   else
     local i = 1
     local rowoff = 0
