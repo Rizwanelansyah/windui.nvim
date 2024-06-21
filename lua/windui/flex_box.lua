@@ -7,6 +7,7 @@ local WindowState = require("windui.window_state")
 ---@field windows windui.Component[]
 ---@field align windui.FlexBox.alignment
 ---@field vertical boolean
+---@field spacing integer
 ---@field main integer
 local FlexBox = {
   class_name = "FlexBox",
@@ -14,7 +15,7 @@ local FlexBox = {
 
 ---create new flex box layout
 ---@param windows windui.Component[]
----@param opts? { align?: windui.FlexBox.alignment, vertical?: boolean, main?: integer, state?: windui.WindowState }
+---@param opts? { spacing?: integer, align?: windui.FlexBox.alignment, vertical?: boolean, main?: integer, state?: windui.WindowState }
 ---@return windui.FlexBox
 function FlexBox.new(windows, opts)
   ---@type windui.FlexBox
@@ -23,9 +24,10 @@ function FlexBox.new(windows, opts)
     __index = FlexBox,
   })
   opts = vim.tbl_extend("force", {
-    align = "center",
+    align = "start",
     vertical = false,
     main = 1,
+    spacing = 0,
     state = WindowState.new({
       width = vim.o.columns - 8,
       height = vim.o.lines - 8,
@@ -33,6 +35,7 @@ function FlexBox.new(windows, opts)
     }):move_to("center"),
   }, opts or {})
   o.state = opts.state
+  o.spacing = opts.spacing
   o.windows = windows
   o.opened = false
   o.align = opts.align
@@ -76,16 +79,16 @@ function FlexBox:update_states(state, callback)
         height = 0
         width = 0
         curpos = curpos + 1
-      elseif h <= self.state.height - height then
+      elseif h <= self.state.height - height - self.spacing then
         if w > width then
           width = w
         end
-        height = height + h
+        height = height + h + self.spacing
         heights[curpos] = heights[curpos] or {}
         table.insert(heights[curpos], h)
       else
         table.insert(widths, width)
-        height = h
+        height = h + self.spacing
         width = w
         curpos = curpos + 1
         heights[curpos] = { h }
@@ -104,16 +107,16 @@ function FlexBox:update_states(state, callback)
         height = 0
         width = 0
         curpos = curpos + 1
-      elseif w <= self.state.width - width then
+      elseif w <= self.state.width - width - self.spacing then
         if h > height then
           height = h
         end
-        width = width + w
+        width = width + w + self.spacing
         widths[curpos] = widths[curpos] or {}
         table.insert(widths[curpos], w)
       else
         table.insert(heights, height)
-        width = w
+        width = w + self.spacing
         height = h
         curpos = curpos + 1
         widths[curpos] = { w }
@@ -131,8 +134,9 @@ function FlexBox:update_states(state, callback)
       for i, h in ipairs(heights) do
         offsets[i] = 0
         for _, num in ipairs(h) do
-          offsets[i] = offsets[i] + num
+          offsets[i] = offsets[i] + num + self.spacing
         end
+        offsets[i] = offsets[i] - self.spacing
         if self.align == "end" then
           offsets[i] = self.state.height - offsets[i]
         elseif self.align == "center" then
@@ -149,8 +153,9 @@ function FlexBox:update_states(state, callback)
       for i, w in ipairs(widths) do
         offsets[i] = 0
         for _, num in ipairs(w) do
-          offsets[i] = offsets[i] + num
+          offsets[i] = offsets[i] + num + self.spacing
         end
+        offsets[i] = offsets[i] - self.spacing
         if self.align == "end" then
           offsets[i] = self.state.width - offsets[i]
         elseif self.align == "center" then
@@ -179,7 +184,7 @@ function FlexBox:update_states(state, callback)
         winstate.col = self.state.col + coloff
         winstate.row = self.state.row + rowoff
         winstates[i] = winstate
-        rowoff = rowoff + h
+        rowoff = rowoff + h + self.spacing
         i = i + 1
         ::continue::
       end
@@ -203,7 +208,7 @@ function FlexBox:update_states(state, callback)
         winstate.row = self.state.row + rowoff
         winstate.col = self.state.col + coloff
         winstates[i] = winstate
-        coloff = coloff + w
+        coloff = coloff + w + self.spacing
         i = i + 1
         ::continue::
       end
