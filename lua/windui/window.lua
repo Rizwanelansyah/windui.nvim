@@ -1,5 +1,6 @@
 local WindowState = require("windui.window_state")
 ---@class windui.Component
+---@field class_name string
 ---@field state windui.WindowState
 ---@field open fun(self: self, enter?: boolean): self
 ---@field close fun(self: self, force?: boolean): self
@@ -7,17 +8,13 @@ local WindowState = require("windui.window_state")
 ---@field focus fun(self: self): self
 ---@field map fun(self: self, mode: string|string[], lhs: string, rhs: string|fun(self: self)): self
 ---@field unmap fun(self: self, mode: string|string[], lhs: string): self
----@field on fun(self: self, event: string|string[], pattern?: string|string[], handler: string|fun(self: self)): self
----@field off fun(self: self, event: string|string[], pattern?: string|string[]): self
+---@field on fun(self: self, event: string|string[], pattern?: string|string[], handler: string|fun(self: self), group?: string|integer): self
+---@field off fun(self: self, event: string|string[], pattern?: string|string[], group?: string|integer): self
 ---@field after_open fun(self: self)
 ---@field before_close fun(self: self, close: function)
 ---@field animate fun(self: self, time: number, fps: integer, state: windui.WindowState, on_finish?: function): self
 
----@class windui.Layout: windui.Component
----@field opened boolean
-
 ---@class windui.Window: windui.Component
----@field class_name string
 ---@field protected _mappings table<string, table<string, string|function>>
 ---@field protected _events table<string, vim.api.keyset.create_autocmd[]>
 ---@field window vim.api.keyset.win_config

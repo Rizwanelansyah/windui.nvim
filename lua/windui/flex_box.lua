@@ -1,6 +1,7 @@
 local util = require("windui.util")
 local clone = util.tbl.clone
 local WindowState = require("windui.window_state")
+local Layout = require("windui.layout")
 ---@alias windui.FlexBox.alignment "start"|"center"|"end"
 
 ---@class windui.FlexBox: windui.Layout
@@ -12,6 +13,8 @@ local WindowState = require("windui.window_state")
 local FlexBox = {
   class_name = "FlexBox",
 }
+
+setmetatable(FlexBox, { __index = Layout })
 
 ---create new flex box layout
 ---@param windows windui.Component[]
@@ -60,7 +63,7 @@ function FlexBox:update_states(state, callback)
   local width = 0
   local height = 0
   local curpos = 1
-  for _, window in ipairs(self.windows) do
+  for i, window in ipairs(self.windows) do
     local bordered = window.state:is_bordered()
     local w = window.state.width + (bordered.left and 1 or 0) + (bordered.right and 1 or 0)
     local h = window.state.height + (bordered.top and 1 or 0) + (bordered.bottom and 1 or 0)
@@ -79,7 +82,7 @@ function FlexBox:update_states(state, callback)
         height = 0
         width = 0
         curpos = curpos + 1
-      elseif h <= self.state.height - height - self.spacing then
+      elseif h <= self.state.height - height - (i == #self.windows and 0 or self.spacing) then
         if w > width then
           width = w
         end
@@ -107,7 +110,7 @@ function FlexBox:update_states(state, callback)
         height = 0
         width = 0
         curpos = curpos + 1
-      elseif w <= self.state.width - width - self.spacing then
+      elseif w <= self.state.width - width - (i == #self.windows and 0 or self.spacing) then
         if h > height then
           height = h
         end
@@ -183,6 +186,7 @@ function FlexBox:update_states(state, callback)
         winstate.blend = winstate.blend or self.state.blend
         winstate.col = self.state.col + coloff
         winstate.row = self.state.row + rowoff
+        winstate.zindex = self.state.zindex
         winstates[i] = winstate
         rowoff = rowoff + h + self.spacing
         i = i + 1
@@ -207,6 +211,7 @@ function FlexBox:update_states(state, callback)
         winstate.blend = winstate.blend or self.state.blend
         winstate.row = self.state.row + rowoff
         winstate.col = self.state.col + coloff
+        winstate.zindex = self.state.zindex
         winstates[i] = winstate
         coloff = coloff + w + self.spacing
         i = i + 1

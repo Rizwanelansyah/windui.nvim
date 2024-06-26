@@ -1,5 +1,6 @@
 local WindowState = require("windui.window_state")
 local util        = require("windui.util")
+local Layout = require("windui.layout")
 
 ---@class windui.Stack: windui.Layout
 ---@field class_name string
@@ -12,6 +13,8 @@ local util        = require("windui.util")
 local Stack       = {
   class_name = "Stack",
 }
+
+setmetatable(Stack, { __index = Layout })
 
 ---create stack layout
 ---@param windows (windui.Component|{ size: number, child: windui.Component })[]

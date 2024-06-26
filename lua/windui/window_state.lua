@@ -12,6 +12,7 @@ local util = require("windui.util")
 ---@field height? number
 ---@field border? windui.border
 ---@field blend? integer
+---@field zindex? integer
 ---@field relative? windui.relative
 ---@field win? integer
 local WindowState = {
@@ -20,8 +21,8 @@ local WindowState = {
 
 ---@generic T
 ---@alias windui.wrap fun(value: T): T
----@alias windui.anim_frame.opts { col?: number, row?: number, width?: number, height?: number, border?: windui.border, blend?: integer, relative?: windui.relative, win?: integer }
----@alias windui.anim_frame.map_opts { col?: windui.wrap<number>, row?: windui.wrap<number>, width?: windui.wrap<number>, height?: windui.wrap<number>, border?: windui.wrap<windui.border>, bend?: windui.wrap<integer>, relative?: windui.wrap<windui.relative>, win?: windui.wrap<integer> }
+---@alias windui.anim_frame.opts { zindex?: integer, col?: number, row?: number, width?: number, height?: number, border?: windui.border, blend?: integer, relative?: windui.relative, win?: integer }
+---@alias windui.anim_frame.map_opts { zindex?: windui.wrap<integer>, col?: windui.wrap<number>, row?: windui.wrap<number>, width?: windui.wrap<number>, height?: windui.wrap<number>, border?: windui.wrap<windui.border>, bend?: windui.wrap<integer>, relative?: windui.wrap<windui.relative>, win?: windui.wrap<integer> }
 
 ---create new window state
 ---@param opts? windui.anim_frame.opts
@@ -38,6 +39,7 @@ function WindowState.new(opts)
     o.height = opts.height
     o.border = opts.border
     o.blend = opts.blend
+    o.zindex = opts.zindex
     o.relative = opts.relative
     o.win = opts.win
   end
@@ -62,6 +64,7 @@ function WindowState:clone(opts)
   o.height = opts.height or self.height
   o.blend = opts.blend or self.blend
   o.border = opts.border or self.border
+  o.zindex = opts.zindex or self.zindex
   o.relative = opts.relative or self.relative
   o.win = opts.win or self.win
   if o.relative ~= 'win' then
@@ -96,6 +99,8 @@ end
 ---@param direction windui.anim_frame.position
 ---@return windui.WindowState
 function WindowState:move_to(direction)
+  self.relative = 'editor'
+  self.win = nil
   local bordered = self:is_bordered() --[[@as table]]
   bordered.vertical = bordered.top and bordered.bottom
   bordered.horizontal = bordered.left and bordered.right
