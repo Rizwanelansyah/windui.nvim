@@ -3,6 +3,7 @@ local util = require("windui.util")
 
 ---@class windui.Frame: windui.Window
 ---@field child windui.Component
+---@field padding windui.padding
 ---@field private _update fun(self: self, state?: windui.WindowState): self
 local Frame = {
   class_name = "Frame",
@@ -13,15 +14,17 @@ setmetatable(Frame, { __index = Window })
 ---create new frame window
 ---@param config vim.api.keyset.win_config
 ---@param child windui.Component
+---@param opts? { padding?: windui.padding|integer }
 ---@return windui.Frame
-function Frame.new(config, child)
+function Frame.new(config, child, opts)
+  opts = vim.tbl_extend('force', {
+    padding = util.ui.padding(0),
+  }, opts or {})
   ---@type windui.Frame
   local o = Window.new(config) --[[@as windui.Frame]]
   setmetatable(o, { __index = Frame })
   o.child = child
-  o.child:on('WinClosed', nil, function()
-    o:close(true)
-  end, "WindUIFrame")
+  o.padding = type(opts.padding) == "number" and util.ui.padding(opts.padding) or opts.padding
   return o
 end
 
@@ -47,10 +50,10 @@ function Frame:_update(state)
   end
   local bordered = self.state:is_bordered()
   local cbordered = self.child.state:is_bordered()
-  self.child.state.row = self.state.row + (bordered.top and 1 or 0)
-  self.child.state.col = self.state.col + (bordered.left and 1 or 0)
-  self.child.state.height = self.state.height
-  self.child.state.width = self.state.width
+  self.child.state.row = self.state.row + (bordered.top and 1 or 0) + self.padding.top
+  self.child.state.col = self.state.col + (bordered.left and 1 or 0) + self.padding.left
+  self.child.state.height = self.state.height - self.padding.top - self.padding.bottom
+  self.child.state.width = self.state.width - self.padding.left - self.padding.right
 
   if util.tbl.instance_of(self.child, Window.class_name) then
     self.child.state.height = self.child.state.height - (cbordered.top and 1 or 0) - (cbordered.bottom and 1 or 0)
@@ -74,13 +77,19 @@ end
 
 ---update frame
 ---@param state windui.WindowState
+---@param update_child boolean?
 ---@return windui.Frame
-function Frame:update(state)
+function Frame:update(state, update_child)
+  if update_child == nil then
+    update_child = false
+  end
   self:_update(state)
   Window.update(self)
   local zindex = self.win and vim.api.nvim_win_get_config(self.win).zindex or (self.state.zindex or 1)
   self.child.state.zindex = zindex + 1
-  self.child:update()
+  if update_child then
+    self.child:update()
+  end
   return self
 end
 
@@ -110,27 +119,17 @@ function Frame:unmap(mode, lhs)
   return self
 end
 
--- local Stack = require("windui.stack")
--- local s = Stack.new {
---   Window.new {},
---   Window.new {},
--- }
--- local f = Frame.new({
---   width = 20,
---   height = 5,
---   border = "double",
--- }, s)
--- f.state = f.state:move_to("center")
--- f:map('n', '<esc>', function()
---   f:close(true)
--- end)
--- f:open(true)
--- f:animate(0.3, 120, f.state:clone({
---   width = 50,
---   height = 40,
--- }):move_to("center"), function()
---   s.vertical = true
---   s:animate(0.3, 120, s.state)
--- end)
+---animate frame
+---@param time number
+---@param fps integer
+---@param state windui.WindowState
+---@param on_finish? function
+---@return windui.Frame
+function Frame:animate(time, fps, state, on_finish)
+  self:_update()
+  Window.animate(self, time, fps, state)
+  self.child:animate(time, fps, self.child.state, on_finish)
+  return self
+end
 
 return Frame

@@ -237,6 +237,7 @@ function Window:animate(time, fps, _end, on_finish)
 
   local row_range
   if begin.row or _end.row then
+    update = true
     begin.row = begin.row or 0
     _end.row = _end.row or 0
     row_range = begin.row > _end.row and begin.row - _end.row or _end.row - begin.row

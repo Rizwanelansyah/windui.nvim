@@ -37,4 +37,23 @@ function M.get_border_parts(border)
   return chars
 end
 
+---@alias windui.padding { top: integer, right: integer, bottom: integer, left: integer }
+
+---make a padding for ui option
+---@param top integer?
+---@param right integer?
+---@param left integer?
+---@param bottom integer?
+---@return windui.padding
+function M.padding(top, right, left, bottom)
+  local pad = {top, right, left, bottom}
+  if #pad == 1 and top then
+    return { top = top, right = top, bottom = top, left = top }
+  elseif #pad == 2 and top and right then
+    return { top = top, right = right, bottom = top, left = right }
+  else
+    return { top = top or 0, right = right or 0, bottom = bottom or 0, left = left or 0 }
+  end
+end
+
 return M
