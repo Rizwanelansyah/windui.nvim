@@ -58,10 +58,22 @@ end
 function Menu:open(enter)
   vim.cmd("normal! 0")
   Window.open(self, enter)
+  self:update()
+end
+
+---update menu
+---@param state? windui.WindowState
+---@return windui.Menu
+function Menu:update(state)
+  vim.bo[self.buf].readonly = false
+  vim.bo[self.buf].modifiable = true
+  Window.update(self, state)
+  if not self.win then return self end
   local pos = vim.api.nvim_win_get_cursor(self.win)
+  vim.api.nvim_buf_set_lines(self.buf, 0, -1, false, {""})
   if self.state.border ~= "none" then
     self.window.title = string.format("%s (%d/%d)", self.name, pos[1], vim.fn.line('$'))
-    self:update()
+    Window.update(self)
   end
 
   for i, item in ipairs(self.items) do
@@ -71,8 +83,10 @@ function Menu:open(enter)
       vim.api.nvim_buf_set_lines(self.buf, i - 1, i, false, { "> " .. item.name })
     end
   end
+  vim.api.nvim_win_set_cursor(self.win, pos)
   vim.bo[self.buf].readonly = true
   vim.bo[self.buf].modifiable = false
+  return self
 end
 
 ---move selection to +{range}
