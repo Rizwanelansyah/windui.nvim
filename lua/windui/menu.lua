@@ -72,7 +72,7 @@ function Menu:update(state)
   local pos = vim.api.nvim_win_get_cursor(self.win)
   vim.api.nvim_buf_set_lines(self.buf, 0, -1, false, {""})
   if self.state.border ~= "none" then
-    self.window.title = string.format("%s (%d/%d)", self.name, pos[1], vim.fn.line('$'))
+    self.window.title = string.format("%s (%d/%d)", self.name, pos[1], #self.items)
     Window.update(self)
   end
 
@@ -83,7 +83,8 @@ function Menu:update(state)
       vim.api.nvim_buf_set_lines(self.buf, i - 1, i, false, { "> " .. item.name })
     end
   end
-  vim.api.nvim_win_set_cursor(self.win, pos)
+  local endl = vim.fn.line('$')
+  vim.api.nvim_win_set_cursor(self.win, { pos[1] > endl and endl or pos[1], 0 })
   vim.bo[self.buf].readonly = true
   vim.bo[self.buf].modifiable = false
   return self
