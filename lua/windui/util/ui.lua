@@ -38,6 +38,8 @@ function M.get_border_parts(border)
 end
 
 ---@alias windui.padding { top: integer, right: integer, bottom: integer, left: integer }
+---@alias windui.margin { top: integer, right: integer, bottom: integer, left: integer }
+---@alias windui.spacing { top: integer, right: integer, bottom: integer, left: integer }
 
 ---make a padding for ui option
 ---@param top integer?
@@ -45,11 +47,40 @@ end
 ---@param left integer?
 ---@param bottom integer?
 ---@return windui.padding
+---@deprecated use spacing() instead of padding()
 function M.padding(top, right, left, bottom)
   local pad = {top, right, left, bottom}
   if #pad == 1 and top then
     return { top = top, right = top, bottom = top, left = top }
   elseif #pad == 2 and top and right then
+    return { top = top, right = right, bottom = top, left = right }
+  else
+    return { top = top or 0, right = right or 0, bottom = bottom or 0, left = left or 0 }
+  end
+end
+
+---make a margin for ui option
+---@param top integer?
+---@param right integer?
+---@param left integer?
+---@param bottom integer?
+---@return windui.margin
+---@deprecated use spacing() instead of margin()
+function M.margin(top, right, left, bottom)
+  return M.padding(top, right, left, bottom) --[[@as windui.margin]]
+end
+
+---make a spaacing object used for field like margin or padding
+---@param top integer?
+---@param right integer?
+---@param left integer?
+---@param bottom integer?
+---@return windui.spacing
+function M.spacing(top, right, left, bottom)
+  local spc = {top, right, left, bottom}
+  if #spc == 1 and top then
+    return { top = top, right = top, bottom = top, left = top }
+  elseif #spc == 2 and top and right then
     return { top = top, right = right, bottom = top, left = right }
   else
     return { top = top or 0, right = right or 0, bottom = bottom or 0, left = left or 0 }
