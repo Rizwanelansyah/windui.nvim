@@ -1,6 +1,6 @@
 local util = require("windui.util")
+local Base = require("windui.interactive_window.components.base")
 
-local Base = require "windui.interactive_window.components.base"
 ---@class windui.IWComponent.Label : windui.IWComponent
 ---@field class_name string
 ---@field text string
@@ -13,18 +13,30 @@ local Base = require "windui.interactive_window.components.base"
 ---@field text_hl string
 ---@field padding windui.spacing
 ---@field margin windui.spacing
+---@field align "center"|"left"|"right"|"between"
 local Label = {
   class_name = "IWComponent.Label",
 }
 
 setmetatable(Label, {
-  __index = Label,
+  __index = Base,
   __call = function(t, ...)
     return t.new(...)
   end
 })
 
----@alias windui.IWComponent.Label.opts { text?: string, wrap?: "char"|"word"|"none", row?: integer, col?: integer, width?: integer, height?: integer, hl?: string, text_hl: string, padding?: windui.spacing, margin?: windui.spacing }
+---@class windui.IWComponent.Label.opts
+---@field text? string
+---@field wrap? "char"|"word"|"none"
+---@field row? integer
+---@field col? integer
+---@field width? integer
+---@field height? integer
+---@field hl? string
+---@field text_hl? string
+---@field padding? windui.spacing
+---@field margin? windui.spacing
+---@field align? "center"|"left"|"right"|"between"
 
 ---create new text component
 ---@param opt string|windui.IWComponent.Label.opts
@@ -42,6 +54,7 @@ function Label.new(opt)
     col = 0,
     hl = "",
     text_hl = "",
+    align = "left",
     padding = util.ui.spacing(0),
     margin = util.ui.spacing(0),
   }
@@ -66,11 +79,29 @@ end
 ---@param win windui.InteractiveWindow
 ---@param pos [integer, integer]?
 function Label:draw(win, pos)
+  if self.drawed then
+    for i = self.row, self.row + self.padding.top do
+      vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), "Normal", i, self.col,
+        self.col + self.width)
+    end
+    for i = self.row + 1, self.row + self.height - 1 do
+      local line = vim.api.nvim_buf_get_lines(win.buf, i, i + 1, false)[1]
+      local new_line = util.string.replace(line, { self.col + 1, self.col + self.width }, string.rep(" ", self.width))
+      vim.api.nvim_buf_set_lines(win.buf, i, i + 1, false, { new_line })
+      vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), "Normal", i, self.col,
+        self.col + self.width)
+    end
+    for i = self.row + self.height - self.padding.bottom, self.row + self.height - 1 do
+      vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), "Normal", i, self.col,
+        self.col + self.width)
+    end
+  end
   if pos then
     self.row = pos[1]
     self.col = pos[2]
   end
 
+  local no_width = self.width < 1
   if self.width < 1 then
     self.width = self.parent.width
   end
@@ -80,6 +111,9 @@ function Label:draw(win, pos)
   local cur_line = 1
   local max_width = self.width - self.padding.left - self.padding.right
   local max_height = self.height - self.padding.top - self.padding.bottom
+  if self.wrap ~= "none" then
+    self.text = self.text:gsub("%s", " ")
+  end
 
   if self.wrap == "word" then
     local words = vim.split(self.text, " ")
@@ -112,10 +146,14 @@ function Label:draw(win, pos)
         break
       end
     end
-    print("Debug: ", vim.inspect(content))
   else
     for i = 1, vim.fn.strchars(self.text) do
       local char = vim.fn.nr2char(vim.fn.strgetchar(self.text, i - 1))
+      if char == "\n" then
+        cur_width = 0
+        cur_line = cur_line + 1
+        goto continue
+      end
       cur_width = cur_width + vim.fn.strchars(char)
       content[cur_line] = (content[cur_line] or "") .. char
       if char == "\n" then
@@ -133,6 +171,7 @@ function Label:draw(win, pos)
         content[max_height + 1] = nil
         break
       end
+      ::continue::
     end
   end
 
@@ -154,10 +193,21 @@ function Label:draw(win, pos)
     self.height = #content
   end
 
+  if no_width then
+    local new_width = 0
+    for _, w in ipairs(content) do
+      if #w > new_width then
+        new_width = #w
+      end
+    end
+    self.width = new_width
+  end
   for i = self.row, self.row + self.padding.top do
-      vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), self.hl, i, self.col, self.col + self.width)
+    vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), self.hl, i, self.col,
+      self.col + self.width)
   end
   for i, text in ipairs(content) do
+    text = util.string.align(text, self.width - self.padding.left - self.padding.right - 2, self.align)
     local byte_len = #text
     local rest_byte = 0
     while byte_len ~= vim.fn.strchars(text) do
@@ -166,9 +216,11 @@ function Label:draw(win, pos)
     end
     local line = vim.api.nvim_buf_get_lines(win.buf, self.row - 1 + i + self.padding.top, self.row + i + self.padding
       .top, false)[1]
-    local new_line = util.string.replace(line, { self.col + 1 + self.padding.left, self.col + byte_len + self.padding.left },
+    local new_line = util.string.replace(line,
+      { self.col + 1 + self.padding.left, self.col + byte_len + self.padding.left },
       text)
-    vim.api.nvim_buf_set_lines(win.buf, self.row - 1 + i + self.padding.top, self.row + i + self.padding.top, false, { new_line })
+    vim.api.nvim_buf_set_lines(win.buf, self.row - 1 + i + self.padding.top, self.row + i + self.padding.top, false,
+      { new_line })
     if self.hl ~= "" then
       vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), self.hl,
         self.row - 1 + i + self.padding.top,
@@ -178,13 +230,12 @@ function Label:draw(win, pos)
       vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), self.text_hl,
         self.row - 1 + i + self.padding.top, self.col + self.padding.left, self.col + byte_len + self.padding.left)
     end
-    if #text > width then
-      width = #text
-    end
   end
   for i = self.row + self.height - self.padding.bottom, self.row + self.height - 1 do
-      vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), self.hl, i, self.col, self.col + self.width)
+    vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), self.hl, i, self.col,
+      self.col + self.width)
   end
+  self.drawed = true
 end
 
 return Label
