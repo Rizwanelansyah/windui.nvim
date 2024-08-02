@@ -80,20 +80,11 @@ end
 ---@param pos [integer, integer]?
 function Label:draw(win, pos)
   if self.drawed then
-    for i = self.row, self.row + self.padding.top do
-      vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), "Normal", i, self.col,
-        self.col + self.width)
-    end
-    for i = self.row + 1, self.row + self.height - 1 do
+    for i = self.row, self.row + self.height - 1 do
+      vim.api.nvim_buf_clear_namespace(win.buf, vim.api.nvim_create_namespace("Windui"), i, i + 1)
       local line = vim.api.nvim_buf_get_lines(win.buf, i, i + 1, false)[1]
       local new_line = util.string.replace(line, { self.col + 1, self.col + self.width }, string.rep(" ", self.width))
       vim.api.nvim_buf_set_lines(win.buf, i, i + 1, false, { new_line })
-      vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), "Normal", i, self.col,
-        self.col + self.width)
-    end
-    for i = self.row + self.height - self.padding.bottom, self.row + self.height - 1 do
-      vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), "Normal", i, self.col,
-        self.col + self.width)
     end
   end
   if pos then
@@ -190,21 +181,24 @@ function Label:draw(win, pos)
     end
   end
   if self.height == 0 then
-    self.height = #content
+    self.height = #content + self.padding.top + self.padding.bottom
   end
 
   if no_width then
     local new_width = 0
     for _, w in ipairs(content) do
-      if #w > new_width then
-        new_width = #w
+      local line_width = #w + self.padding.left + self.padding.right
+      if line_width > new_width then
+        new_width = line_width
       end
     end
     self.width = new_width
   end
-  for i = self.row, self.row + self.padding.top do
-    vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), self.hl, i, self.col,
-      self.col + self.width)
+  if self.hl then
+    for i = self.row, self.row + self.height - 1 do
+      vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), self.hl, i, self.col,
+        self.col + self.width)
+    end
   end
   for i, text in ipairs(content) do
     text = util.string.align(text, self.width - self.padding.left - self.padding.right - 2, self.align)
@@ -214,28 +208,29 @@ function Label:draw(win, pos)
       text = text .. " "
       rest_byte = rest_byte + 1
     end
+    while self.drawed and vim.fn.strchars(text) + 1 < self.width do
+      text = text .. " "
+      byte_len = byte_len + 1
+    end
     local line = vim.api.nvim_buf_get_lines(win.buf, self.row - 1 + i + self.padding.top, self.row + i + self.padding
       .top, false)[1]
     local new_line = util.string.replace(line,
-      { self.col + 1 + self.padding.left, self.col + byte_len + self.padding.left },
-      text)
+      { self.col + 1 + self.padding.left, self.col + byte_len + self.padding.left }, text)
     vim.api.nvim_buf_set_lines(win.buf, self.row - 1 + i + self.padding.top, self.row + i + self.padding.top, false,
       { new_line })
-    if self.hl ~= "" then
+    if self.hl then
       vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), self.hl,
-        self.row - 1 + i + self.padding.top,
-        self.col, self.col + self.width + rest_byte)
+        self.row + self.padding.top + i - 1, self.col,
+        self.col + self.width)
     end
     if self.text_hl ~= "" then
       vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), self.text_hl,
         self.row - 1 + i + self.padding.top, self.col + self.padding.left, self.col + byte_len + self.padding.left)
     end
   end
-  for i = self.row + self.height - self.padding.bottom, self.row + self.height - 1 do
-    vim.api.nvim_buf_add_highlight(win.buf, vim.api.nvim_create_namespace("Windui"), self.hl, i, self.col,
-      self.col + self.width)
+  if not self.drawed then
+    self.drawed = true
   end
-  self.drawed = true
 end
 
 return Label
